@@ -795,6 +795,13 @@
 
   const canvas = $('#fieldCanvas');
   const ctx = canvas?.getContext('2d');
+  let drawBaseImg = null;
+
+  // 手書き専用の透明レイヤー（背景と手書きを完全分離し、本物の消しゴムを実現）
+  const paintCanvas = document.createElement('canvas');
+  paintCanvas.width = 1024;
+  paintCanvas.height = 635;
+  const pCtx = paintCanvas.getContext('2d');
 
   function drawFieldTemplate(tCtx, w, h) {
     tCtx.fillStyle = '#ffffff';
@@ -887,23 +894,44 @@
   }
 
   function redrawCanvas() {
-    if (!ctx) return;
-    drawFieldTemplate(ctx, canvas.width, canvas.height);
+    if (!ctx || !pCtx) return;
+    // 1. 背景を描画（元の絵があればそれ、無ければフィールドテンプレート）
+    if (drawBaseImg) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(drawBaseImg, 0, 0, canvas.width, canvas.height);
+    } else {
+      drawFieldTemplate(ctx, canvas.width, canvas.height);
+    }
 
+    // 2. 透明手書きレイヤーをクリア
+    pCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
+
+    // 3. すべてのストロークを透明レイヤーに描画（消しゴムはくり抜き合成）
     drawPaths.forEach((stroke) => {
       if (stroke.points.length < 1) return;
-      ctx.beginPath();
-      ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.size;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+      pCtx.save();
+      pCtx.beginPath();
+      if (stroke.isEraser) {
+        pCtx.globalCompositeOperation = 'destination-out';
+        pCtx.lineWidth = stroke.size;
+      } else {
+        pCtx.globalCompositeOperation = 'source-over';
+        pCtx.strokeStyle = stroke.color;
+        pCtx.lineWidth = stroke.size;
       }
-      ctx.stroke();
+      pCtx.lineCap = 'round';
+      pCtx.lineJoin = 'round';
+
+      pCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+      for (let i = 1; i < stroke.points.length; i++) {
+        pCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+      }
+      pCtx.stroke();
+      pCtx.restore();
     });
+
+    // 4. メインキャンバスに重ねて合成
+    ctx.drawImage(paintCanvas, 0, 0);
   }
 
   function getCanvasPos(e) {
@@ -936,11 +964,12 @@
     if (p.drawing) {
       const img = new Image();
       img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        drawBaseImg = img;
+        redrawCanvas();
       };
       img.src = p.drawing;
     } else {
+      drawBaseImg = null;
       redrawCanvas();
     }
 
@@ -960,8 +989,15 @@
   const viewCanvas = $('#viewCanvas');
   const viewCtx = viewCanvas?.getContext('2d');
 
+  // 閲覧用ホワイトボード専用の透明レイヤー（元のPlay図を削らず、メモだけを綺麗に消去）
+  const viewPaintCanvas = document.createElement('canvas');
+  viewPaintCanvas.width = 1024;
+  viewPaintCanvas.height = 635;
+  const vpCtx = viewPaintCanvas.getContext('2d');
+
   function redrawViewCanvas() {
-    if (!viewCtx || !viewCanvas) return;
+    if (!viewCtx || !vpCtx || !viewCanvas) return;
+    // 1. 背景を描画（元のPlay図、または白紙フィールド）
     if (viewBaseImg) {
       viewCtx.clearRect(0, 0, viewCanvas.width, viewCanvas.height);
       viewCtx.drawImage(viewBaseImg, 0, 0, viewCanvas.width, viewCanvas.height);
@@ -969,20 +1005,35 @@
       drawFieldTemplate(viewCtx, viewCanvas.width, viewCanvas.height);
     }
 
+    // 2. 透明手書きレイヤーをクリア
+    vpCtx.clearRect(0, 0, viewPaintCanvas.width, viewPaintCanvas.height);
+
+    // 3. すべてのメモストロークを透明レイヤーに描画（消しゴムはdestination-outでくり抜き）
     viewDrawPaths.forEach((stroke) => {
       if (stroke.points.length < 1) return;
-      viewCtx.beginPath();
-      viewCtx.strokeStyle = stroke.color;
-      viewCtx.lineWidth = stroke.size;
-      viewCtx.lineCap = 'round';
-      viewCtx.lineJoin = 'round';
-
-      viewCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        viewCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+      vpCtx.save();
+      vpCtx.beginPath();
+      if (stroke.isEraser) {
+        vpCtx.globalCompositeOperation = 'destination-out';
+        vpCtx.lineWidth = stroke.size;
+      } else {
+        vpCtx.globalCompositeOperation = 'source-over';
+        vpCtx.strokeStyle = stroke.color;
+        vpCtx.lineWidth = stroke.size;
       }
-      viewCtx.stroke();
+      vpCtx.lineCap = 'round';
+      vpCtx.lineJoin = 'round';
+
+      vpCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+      for (let i = 1; i < stroke.points.length; i++) {
+        vpCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+      }
+      vpCtx.stroke();
+      vpCtx.restore();
     });
+
+    // 4. メインキャンバスに重ねて合成
+    viewCtx.drawImage(viewPaintCanvas, 0, 0);
   }
 
   function getViewCanvasPos(e) {
@@ -1162,8 +1213,9 @@
         canvas.setPointerCapture(e.pointerId);
         const pos = getCanvasPos(e);
         currentStroke = {
-          color: isEraser ? '#ffffff' : currentColor,
-          size: isEraser ? currentSize * 3.5 : currentSize,
+          isEraser: isEraser,
+          color: currentColor,
+          size: isEraser ? currentSize * 4 : currentSize,
           points: [pos]
         };
         drawPaths.push(currentStroke);
@@ -1175,16 +1227,33 @@
         const pos = getCanvasPos(e);
         currentStroke.points.push(pos);
 
-        ctx.beginPath();
-        ctx.strokeStyle = currentStroke.color;
-        ctx.lineWidth = currentStroke.size;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        pCtx.save();
+        pCtx.beginPath();
+        if (currentStroke.isEraser) {
+          pCtx.globalCompositeOperation = 'destination-out';
+          pCtx.lineWidth = currentStroke.size;
+        } else {
+          pCtx.globalCompositeOperation = 'source-over';
+          pCtx.strokeStyle = currentStroke.color;
+          pCtx.lineWidth = currentStroke.size;
+        }
+        pCtx.lineCap = 'round';
+        pCtx.lineJoin = 'round';
         const pts = currentStroke.points;
         const prev = pts[pts.length - 2];
-        ctx.moveTo(prev.x, prev.y);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
+        pCtx.moveTo(prev.x, prev.y);
+        pCtx.lineTo(pos.x, pos.y);
+        pCtx.stroke();
+        pCtx.restore();
+
+        // メインキャンバスを再合成（背景 + 透明手書きレイヤー）
+        if (drawBaseImg) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(drawBaseImg, 0, 0, canvas.width, canvas.height);
+        } else {
+          drawFieldTemplate(ctx, canvas.width, canvas.height);
+        }
+        ctx.drawImage(paintCanvas, 0, 0);
       });
 
       const endDrawing = (e) => {
@@ -1232,6 +1301,7 @@
     $('#drawClearBtn').onclick = () => {
       if (confirm('描いた内容をすべて消去しますか？')) {
         drawPaths = [];
+        drawBaseImg = null;
         redrawCanvas();
       }
     };
@@ -1304,8 +1374,9 @@
         viewCanvas.setPointerCapture(e.pointerId);
         const pos = getViewCanvasPos(e);
         currentViewStroke = {
-          color: isViewEraser ? '#ffffff' : currentViewColor,
-          size: isViewEraser ? currentViewSize * 3.5 : currentViewSize,
+          isEraser: isViewEraser,
+          color: currentViewColor,
+          size: isViewEraser ? currentViewSize * 4 : currentViewSize,
           points: [pos]
         };
         viewDrawPaths.push(currentViewStroke);
@@ -1317,16 +1388,33 @@
         const pos = getViewCanvasPos(e);
         currentViewStroke.points.push(pos);
 
-        viewCtx.beginPath();
-        viewCtx.strokeStyle = currentViewStroke.color;
-        viewCtx.lineWidth = currentViewStroke.size;
-        viewCtx.lineCap = 'round';
-        viewCtx.lineJoin = 'round';
+        vpCtx.save();
+        vpCtx.beginPath();
+        if (currentViewStroke.isEraser) {
+          vpCtx.globalCompositeOperation = 'destination-out';
+          vpCtx.lineWidth = currentViewStroke.size;
+        } else {
+          vpCtx.globalCompositeOperation = 'source-over';
+          vpCtx.strokeStyle = currentViewStroke.color;
+          vpCtx.lineWidth = currentViewStroke.size;
+        }
+        vpCtx.lineCap = 'round';
+        vpCtx.lineJoin = 'round';
         const pts = currentViewStroke.points;
         const prev = pts[pts.length - 2];
-        viewCtx.moveTo(prev.x, prev.y);
-        viewCtx.lineTo(pos.x, pos.y);
-        viewCtx.stroke();
+        vpCtx.moveTo(prev.x, prev.y);
+        vpCtx.lineTo(pos.x, pos.y);
+        vpCtx.stroke();
+        vpCtx.restore();
+
+        // 閲覧用メインキャンバスを再合成（背景 + 透明メモレイヤー）
+        if (viewBaseImg) {
+          viewCtx.clearRect(0, 0, viewCanvas.width, viewCanvas.height);
+          viewCtx.drawImage(viewBaseImg, 0, 0, viewCanvas.width, viewCanvas.height);
+        } else {
+          drawFieldTemplate(viewCtx, viewCanvas.width, viewCanvas.height);
+        }
+        viewCtx.drawImage(viewPaintCanvas, 0, 0);
       });
 
       const endDrawing = (e) => {
