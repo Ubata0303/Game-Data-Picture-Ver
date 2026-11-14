@@ -362,9 +362,8 @@
   function applyRole() {
     const r = ROLES[role];
     document.querySelectorAll('#roleBar button').forEach((b) => b.classList.toggle('on', b.dataset.role === role));
-    $('#actions').classList.toggle('hidden', !r.canAdd);
-    $('#deleteBtn').classList.toggle('hidden', !r.canAdd);
-    $('#roleHint').classList.toggle('hidden', r.canAdd);
+    // 「新シリーズ」ボタンは状況担当・全項目のみ表示（「↓ 次のプレーへ」は全員表示）
+    $('#newSeriesBtn').classList.toggle('hidden', role !== 'situation' && role !== 'all');
     document.querySelectorAll('#playTable th[data-key]').forEach((th) => {
       th.classList.toggle('mine', role !== 'all' && roleHas(th.dataset.key));
     });
