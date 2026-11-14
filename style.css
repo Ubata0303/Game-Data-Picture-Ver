@@ -248,6 +248,18 @@ body:not(.view-only) #filterBar { display: none !important; }
 .draw-modal {
   border: none; border-radius: 14px; padding: 1rem; width: min(880px, 96vw);
   max-width: 880px; box-shadow: 0 10px 40px rgba(0,0,0,.25); background: #fff;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.draw-modal * {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 .draw-modal::backdrop { background: rgba(0,0,0,.5); backdrop-filter: blur(2px); }
 .draw-modal-content { display: flex; flex-direction: column; gap: .8rem; }
@@ -275,16 +287,23 @@ body:not(.view-only) #filterBar { display: none !important; }
   border-radius: 6px; background: #f8fafc; border: 1px solid var(--line); cursor: pointer;
 }
 .tool-btn.on { background: var(--primary-weak); color: var(--primary); border-color: var(--primary); }
-.draw-actions { display: flex; gap: .4rem; }
+.draw-actions { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+.draw-actions button { white-space: nowrap; }
 
 .canvas-wrap {
   background: #f8fafc; border-radius: 8px; padding: 6px; display: flex; justify-content: center;
   align-items: center; overflow: hidden; border: 1px solid var(--line);
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
 }
-#fieldCanvas {
+#fieldCanvas, #viewCanvas {
   max-width: 100%; height: auto; touch-action: none; background: #fff;
   border: 1px solid #111; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.08);
   cursor: crosshair;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* テーブル内のPlay図ボタン */
@@ -300,7 +319,7 @@ body:not(.view-only) #filterBar { display: none !important; }
   padding: .2rem .5rem; min-height: 28px; height: 28px; border-radius: 6px; cursor: pointer;
 }
 .draw-btn-empty:hover { background: #f1f5f9; border-color: #94a3b8; }
-body.view-only .draw-btn-empty { display: none; }
+body.view-only .draw-btn-empty { display: inline-flex; }
 
 .toast {
   position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%) translateY(20px);

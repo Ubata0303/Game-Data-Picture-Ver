@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Football Data Live</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
   <header class="topbar">
@@ -95,9 +95,7 @@
         <div class="draw-tools">
           <div class="color-picker">
             <button type="button" class="color-btn on" data-color="#111827" style="background:#111827;" title="黒"></button>
-            <button type="button" class="color-btn" data-color="#2563eb" style="background:#2563eb;" title="青"></button>
             <button type="button" class="color-btn" data-color="#dc2626" style="background:#dc2626;" title="赤"></button>
-            <button type="button" class="color-btn" data-color="#16a34a" style="background:#16a34a;" title="緑"></button>
           </div>
           <div class="size-picker">
             <button type="button" class="size-btn" data-size="2">細</button>
@@ -109,8 +107,9 @@
           <button type="button" id="drawClearBtn" class="tool-btn danger-text">全消去</button>
         </div>
         <div class="draw-actions">
-          <button type="button" id="saveDrawBtn" class="primary">保存して反映</button>
-          <button type="button" id="cancelDrawBtn">キャンセル</button>
+          <button type="button" id="saveDrawBtn" class="primary">保存して次のPlayへ ➔</button>
+          <button type="button" id="saveAndCloseDrawBtn" class="ghost-btn">保存して閉じる</button>
+          <button type="button" id="cancelDrawBtn">閉じる</button>
         </div>
       </div>
       <div class="canvas-wrap">
@@ -119,21 +118,39 @@
     </div>
   </dialog>
 
-  <!-- Play図の閲覧ビューア -->
+  <!-- Play図の閲覧ビューア & ベンチ共有ボード -->
   <dialog id="viewDrawDialog" class="draw-modal">
     <div class="draw-modal-content">
       <div class="draw-header">
         <div class="draw-title-wrap">
-          <strong id="viewDrawTitle">Play図</strong>
+          <div style="display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;">
+            <strong id="viewDrawTitle">Play図</strong>
+            <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: .75rem; font-weight: 700; padding: .15rem .45rem; border-radius: 4px;">📝 ベンチ共有ボード（メモ可・保存されません）</span>
+          </div>
           <span class="muted" id="viewDrawSubtitle"></span>
         </div>
+        <div class="draw-tools">
+          <div class="color-picker">
+            <button type="button" class="color-btn on v-color" data-color="#dc2626" style="background: #dc2626;" title="赤"></button>
+            <button type="button" class="color-btn v-color" data-color="#2563eb" style="background: #2563eb;" title="青"></button>
+            <button type="button" class="color-btn v-color" data-color="#eab308" style="background: #eab308;" title="黄色"></button>
+          </div>
+          <div class="size-picker">
+            <button type="button" class="size-btn v-size" data-size="2">細</button>
+            <button type="button" class="size-btn on v-size" data-size="4">中</button>
+            <button type="button" class="size-btn v-size" data-size="7">太</button>
+          </div>
+          <button type="button" id="viewDrawEraserBtn" class="tool-btn">消しゴム</button>
+          <button type="button" id="viewDrawUndoBtn" class="tool-btn">↩ 1手戻す</button>
+          <button type="button" id="viewDrawClearBtn" class="tool-btn danger-text">メモ消去</button>
+        </div>
         <div class="draw-actions">
-          <button type="button" id="editFromViewDrawBtn" class="ghost-btn">✎ 編集する</button>
-          <button type="button" id="closeViewDrawBtn" class="primary">閉じる</button>
+          <button type="button" id="editFromViewDrawBtn" class="ghost-btn hidden">✎ 作図を編集</button>
+          <button type="button" id="closeViewDrawBtn" class="primary" style="min-width: 90px;">閉じる</button>
         </div>
       </div>
       <div class="canvas-wrap">
-        <img id="viewDrawImg" alt="Play図" style="max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08);">
+        <canvas id="viewCanvas" width="1024" height="635"></canvas>
       </div>
     </div>
   </dialog>
@@ -168,8 +185,8 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="config.js?v=5"></script>
-  <script src="store.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+  <script src="config.js?v=11"></script>
+  <script src="store.js?v=11"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>

@@ -579,12 +579,16 @@
           openViewDraw(p);
         };
         drawTd.appendChild(btn);
-      } else if (!isViewOnly) {
-        const btn = el('button', 'draw-btn-empty', '＋ 作図');
+      } else {
+        const btn = el('button', 'draw-btn-empty', isViewOnly ? '＋ ボード' : '＋ 作図');
         btn.type = 'button';
         btn.onclick = (e) => {
           e.stopPropagation();
-          openDrawing(p.id);
+          if (isViewOnly) {
+            openViewDraw(p);
+          } else {
+            openDrawing(p.id);
+          }
         };
         drawTd.appendChild(btn);
       }
@@ -918,7 +922,11 @@
     drawTargetPlayId = playId;
     drawPaths = [];
     isEraser = false;
+    currentColor = '#111827'; // 作図画面は黒がデフォルト
     $('#drawEraserBtn').classList.remove('on');
+    document.querySelectorAll('#drawDialog .color-btn').forEach((b) => {
+      b.classList.toggle('on', b.dataset.color === '#111827');
+    });
 
     const idx = plays.indexOf(p) + 1;
     const dd = p.down ? `${ORD[p.down] || p.down} & ${p.dist || '?'}` : '';
@@ -936,16 +944,83 @@
       redrawCanvas();
     }
 
-    $('#drawDialog').showModal();
+    if (!$('#drawDialog').open) {
+      $('#drawDialog').showModal();
+    }
+  }
+
+  // ---------- 閲覧用ホワイトボード（一時メモ共有） ----------
+  let viewBaseImg = null;
+  let viewDrawPaths = [];
+  let currentViewStroke = null;
+  let currentViewColor = '#dc2626'; // 赤
+  let currentViewSize = 4;
+  let isViewEraser = false;
+
+  const viewCanvas = $('#viewCanvas');
+  const viewCtx = viewCanvas?.getContext('2d');
+
+  function redrawViewCanvas() {
+    if (!viewCtx || !viewCanvas) return;
+    if (viewBaseImg) {
+      viewCtx.clearRect(0, 0, viewCanvas.width, viewCanvas.height);
+      viewCtx.drawImage(viewBaseImg, 0, 0, viewCanvas.width, viewCanvas.height);
+    } else {
+      drawFieldTemplate(viewCtx, viewCanvas.width, viewCanvas.height);
+    }
+
+    viewDrawPaths.forEach((stroke) => {
+      if (stroke.points.length < 1) return;
+      viewCtx.beginPath();
+      viewCtx.strokeStyle = stroke.color;
+      viewCtx.lineWidth = stroke.size;
+      viewCtx.lineCap = 'round';
+      viewCtx.lineJoin = 'round';
+
+      viewCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+      for (let i = 1; i < stroke.points.length; i++) {
+        viewCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+      }
+      viewCtx.stroke();
+    });
+  }
+
+  function getViewCanvasPos(e) {
+    const rect = viewCanvas.getBoundingClientRect();
+    const scaleX = viewCanvas.width / rect.width;
+    const scaleY = viewCanvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
   }
 
   function openViewDraw(p) {
-    if (!p || !p.drawing) return;
+    if (!p) return;
     const idx = plays.indexOf(p) + 1;
     const dd = p.down ? `${ORD[p.down] || p.down} & ${p.dist || '?'}` : '';
     $('#viewDrawTitle').textContent = `Play図: #${idx} ${p.qtr ? 'Q' + p.qtr : ''} ${dd}`;
     $('#viewDrawSubtitle').textContent = `${p.formation || '体型未設定'} / ${p.play || 'Play未設定'} / ${p.defSign || 'Def未設定'}`;
-    $('#viewDrawImg').src = p.drawing;
+
+    viewDrawPaths = [];
+    isViewEraser = false;
+    currentViewColor = '#dc2626'; // 閲覧用は赤がデフォルト
+    $('#viewDrawEraserBtn')?.classList.remove('on');
+    document.querySelectorAll('#viewDrawDialog .v-color').forEach((b) => {
+      b.classList.toggle('on', b.dataset.color === '#dc2626');
+    });
+
+    if (p.drawing) {
+      const img = new Image();
+      img.onload = () => {
+        viewBaseImg = img;
+        redrawViewCanvas();
+      };
+      img.src = p.drawing;
+    } else {
+      viewBaseImg = null;
+      redrawViewCanvas();
+    }
 
     $('#editFromViewDrawBtn').classList.toggle('hidden', isViewOnly);
     $('#editFromViewDrawBtn').onclick = () => {
@@ -953,7 +1028,9 @@
       openDrawing(p.id);
     };
 
-    $('#viewDrawDialog').showModal();
+    if (!$('#viewDrawDialog').open) {
+      $('#viewDrawDialog').showModal();
+    }
   }
 
   function askName() {
@@ -1069,8 +1146,18 @@
     if (canvas && ctx) {
       let isDrawing = false;
 
+      // 文字選択・長押しメニュー・ジェスチャー等のブラウザ標準動作を完全無効化
+      canvas.addEventListener('selectstart', (e) => e.preventDefault());
+      canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+      canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+      canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
       canvas.addEventListener('pointerdown', (e) => {
         e.preventDefault();
+        // 万が一周囲の文字が選択状態になっていれば即解除
+        if (window.getSelection) {
+          try { window.getSelection().removeAllRanges(); } catch {}
+        }
         isDrawing = true;
         canvas.setPointerCapture(e.pointerId);
         const pos = getCanvasPos(e);
@@ -1149,8 +1236,8 @@
       }
     };
 
-    $('#saveDrawBtn').onclick = () => {
-      if (!currentGameId || !drawTargetPlayId) return;
+    function saveCurrentDrawing() {
+      if (!currentGameId || !drawTargetPlayId) return false;
       try {
         const dataUrl = canvas.toDataURL('image/webp', 0.85);
         store.updatePlay(currentGameId, drawTargetPlayId, {
@@ -1159,16 +1246,141 @@
           updatedByClient: clientId,
           updatedAt: Date.now()
         });
-        toast('Play図を保存しました！');
-        $('#drawDialog').close();
+        return true;
       } catch (e) {
         alert('保存エラー: ' + e.message);
+        return false;
+      }
+    }
+
+    // 保存して次のPlayへ
+    $('#saveDrawBtn').onclick = () => {
+      if (!saveCurrentDrawing()) return;
+      const curIdx = plays.findIndex((p) => p.id === drawTargetPlayId);
+      let nextIdx = curIdx + 1;
+      if (nextIdx >= plays.length - 5) {
+        if (store.addPlaysBulk && currentGameId) {
+          store.addPlaysBulk(currentGameId, 20);
+        }
+      }
+      const nextPlay = plays[nextIdx];
+      if (nextPlay) {
+        toast(`#${curIdx + 1} の作図を保存し、次の #${nextIdx + 1} へ進みました`);
+        selectPlay(nextPlay.id, { scroll: true });
+        openDrawing(nextPlay.id);
+      } else {
+        toast('Play図を保存しました！');
+        $('#drawDialog').close();
       }
     };
+
+    // 保存して閉じる
+    if ($('#saveAndCloseDrawBtn')) {
+      $('#saveAndCloseDrawBtn').onclick = () => {
+        if (!saveCurrentDrawing()) return;
+        toast('Play図を保存しました！');
+        $('#drawDialog').close();
+      };
+    }
 
     $('#cancelDrawBtn').onclick = () => {
       $('#drawDialog').close();
     };
+
+    // 閲覧用ホワイトボードキャンバスのイベント
+    if (viewCanvas && viewCtx) {
+      let isDrawing = false;
+      viewCanvas.addEventListener('selectstart', (e) => e.preventDefault());
+      viewCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+      viewCanvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+      viewCanvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+      viewCanvas.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        if (window.getSelection) {
+          try { window.getSelection().removeAllRanges(); } catch {}
+        }
+        isDrawing = true;
+        viewCanvas.setPointerCapture(e.pointerId);
+        const pos = getViewCanvasPos(e);
+        currentViewStroke = {
+          color: isViewEraser ? '#ffffff' : currentViewColor,
+          size: isViewEraser ? currentViewSize * 3.5 : currentViewSize,
+          points: [pos]
+        };
+        viewDrawPaths.push(currentViewStroke);
+      });
+
+      viewCanvas.addEventListener('pointermove', (e) => {
+        if (!isDrawing || !currentViewStroke) return;
+        e.preventDefault();
+        const pos = getViewCanvasPos(e);
+        currentViewStroke.points.push(pos);
+
+        viewCtx.beginPath();
+        viewCtx.strokeStyle = currentViewStroke.color;
+        viewCtx.lineWidth = currentViewStroke.size;
+        viewCtx.lineCap = 'round';
+        viewCtx.lineJoin = 'round';
+        const pts = currentViewStroke.points;
+        const prev = pts[pts.length - 2];
+        viewCtx.moveTo(prev.x, prev.y);
+        viewCtx.lineTo(pos.x, pos.y);
+        viewCtx.stroke();
+      });
+
+      const endDrawing = (e) => {
+        if (!isDrawing) return;
+        isDrawing = false;
+        currentViewStroke = null;
+        try { viewCanvas.releasePointerCapture(e.pointerId); } catch {}
+      };
+
+      viewCanvas.addEventListener('pointerup', endDrawing);
+      viewCanvas.addEventListener('pointercancel', endDrawing);
+    }
+
+    // 閲覧用ツールバー
+    document.querySelectorAll('.v-color').forEach((b) => {
+      b.onclick = () => {
+        document.querySelectorAll('.v-color').forEach((x) => x.classList.remove('on'));
+        b.classList.add('on');
+        currentViewColor = b.dataset.color;
+        isViewEraser = false;
+        $('#viewDrawEraserBtn')?.classList.remove('on');
+      };
+    });
+
+    document.querySelectorAll('.v-size').forEach((b) => {
+      b.onclick = () => {
+        document.querySelectorAll('.v-size').forEach((x) => x.classList.remove('on'));
+        b.classList.add('on');
+        currentViewSize = parseInt(b.dataset.size, 10) || 4;
+      };
+    });
+
+    if ($('#viewDrawEraserBtn')) {
+      $('#viewDrawEraserBtn').onclick = () => {
+        isViewEraser = !isViewEraser;
+        $('#viewDrawEraserBtn').classList.toggle('on', isViewEraser);
+      };
+    }
+
+    if ($('#viewDrawUndoBtn')) {
+      $('#viewDrawUndoBtn').onclick = () => {
+        if (viewDrawPaths.length > 0) {
+          viewDrawPaths.pop();
+          redrawViewCanvas();
+        }
+      };
+    }
+
+    if ($('#viewDrawClearBtn')) {
+      $('#viewDrawClearBtn').onclick = () => {
+        viewDrawPaths = [];
+        redrawViewCanvas();
+      };
+    }
 
     $('#closeViewDrawBtn').onclick = () => {
       $('#viewDrawDialog').close();
