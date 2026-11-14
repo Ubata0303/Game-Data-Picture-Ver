@@ -1358,19 +1358,42 @@
     let shareMode = 'edit';
     function updateShareDialog() {
       const base = location.href.split('#')[0];
-      const targetHash = (shareMode === 'view') ? `#/view/${currentGameId}` : `#/game/${currentGameId}`;
-      const url = base + targetHash;
+      let url = '';
+      if (shareMode === 'mobile') {
+        let mobileBase = '';
+        if (base.endsWith('/index.html')) {
+          mobileBase = base.replace(/\/index\.html$/, '/mobile.html');
+        } else if (base.endsWith('/')) {
+          mobileBase = base + 'mobile.html';
+        } else {
+          const lastSlash = base.lastIndexOf('/');
+          mobileBase = base.slice(0, lastSlash + 1) + 'mobile.html';
+        }
+        url = mobileBase + '#/view/' + currentGameId;
+      } else if (shareMode === 'view') {
+        url = base + '#/view/' + currentGameId;
+      } else {
+        url = base + '#/game/' + currentGameId;
+      }
       $('#shareUrlInput').value = url;
       $('#qrImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
       $('#shareModeEdit').classList.toggle('on', shareMode === 'edit');
       $('#shareModeView').classList.toggle('on', shareMode === 'view');
-      $('#shareDesc').textContent = (shareMode === 'view')
-        ? '閲覧用リンク：入力欄が隠れ、見るだけ専用になります（誤タップの心配なし）'
-        : '編集用リンク：3人で分担して同時入力・編集ができます';
+      $('#shareModeMobile')?.classList.toggle('on', shareMode === 'mobile');
+      if (shareMode === 'mobile') {
+        $('#shareDesc').textContent = 'スマホ閲覧用：スマホの縦画面サイズに特化した専用画面です（見るだけ専用）';
+      } else if (shareMode === 'view') {
+        $('#shareDesc').textContent = 'タブレット閲覧用：大画面・タブレットで見渡せる閲覧専用リンクです';
+      } else {
+        $('#shareDesc').textContent = '編集用リンク：3人で分担して同時入力・編集ができます';
+      }
     }
 
     $('#shareModeEdit').onclick = () => { shareMode = 'edit'; updateShareDialog(); };
     $('#shareModeView').onclick = () => { shareMode = 'view'; updateShareDialog(); };
+    if ($('#shareModeMobile')) {
+      $('#shareModeMobile').onclick = () => { shareMode = 'mobile'; updateShareDialog(); };
+    }
 
     $('#shareBtn').onclick = () => {
       shareMode = isViewOnly ? 'view' : 'edit';

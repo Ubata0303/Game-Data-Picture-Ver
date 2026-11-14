@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>試合中速データ - スマホ閲覧</title>
+  <link rel="stylesheet" href="mobile.css?v=1">
+</head>
+<body>
+  <!-- トップバー -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <a href="index.html" class="back-link">← 戻る</a>
+      <span id="gameTitle" class="game-title">読み込み中...</span>
+    </div>
+    <div class="topbar-right">
+      <button type="button" id="shareBtn" class="topbar-btn">共有</button>
+      <span id="connStatus" class="status-badge ok">🟢 接続中</span>
+    </div>
+  </header>
+
+  <!-- メイン画面 -->
+  <main class="mobile-app">
+    <div class="mobile-banner">
+      <span>👁 スマホ閲覧（見るだけ専用）</span>
+      <span id="filteredCount" class="count-badge"></span>
+    </div>
+
+    <!-- 絞り込みフィルターバー（横スクロール） -->
+    <section class="filter-section">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;">
+        <div id="filterScroll" class="filter-scroll-wrap" style="flex: 1;"></div>
+        <button type="button" id="clearFilterBtn" class="filter-clear-btn" title="絞り込み条件をクリア">Clear</button>
+      </div>
+    </section>
+
+    <!-- テーブル一覧 -->
+    <section class="table-card">
+      <div class="table-scroll">
+        <table id="playTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Q</th>
+              <th>S</th>
+              <th>Hash</th>
+              <th>D&amp;D</th>
+              <th>Pers</th>
+              <th>OFF Formation</th>
+              <th>Play</th>
+              <th>Play図</th>
+              <th>Def Sign</th>
+              <th>更新</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- フィルター用ボトムシートドロップダウン -->
+  <div id="dropdownBackdrop" class="dropdown-backdrop hidden"></div>
+  <div id="filterDropdown" class="filter-dropdown hidden">
+    <div class="dropdown-header">
+      <span id="dropdownTitle">絞り込み</span>
+      <button type="button" id="dropdownCloseBtn" class="dropdown-close-btn">完了</button>
+    </div>
+    <div id="dropdownOptions"></div>
+  </div>
+
+  <!-- 作図閲覧モーダル & ベンチ共有ボード -->
+  <dialog id="viewDrawModal" class="draw-modal">
+    <div class="draw-header">
+      <div class="draw-title-bar">
+        <div>
+          <strong id="modalTitle">Play図</strong>
+          <span class="badge">📝 メモ可（保存されません）</span>
+        </div>
+      </div>
+      <div id="modalSubtitle" style="font-size: 0.8rem; color: var(--muted);"></div>
+
+      <!-- お絵描きツールバー -->
+      <div class="draw-tools">
+        <div class="color-picker">
+          <button type="button" class="color-btn on v-color" data-color="#dc2626" style="background: #dc2626;" title="赤"></button>
+          <button type="button" class="color-btn v-color" data-color="#2563eb" style="background: #2563eb;" title="青"></button>
+          <button type="button" class="color-btn v-color" data-color="#eab308" style="background: #eab308;" title="黄色"></button>
+        </div>
+        <div class="size-picker">
+          <button type="button" class="size-btn v-size" data-size="2">細</button>
+          <button type="button" class="size-btn on v-size" data-size="4">中</button>
+          <button type="button" class="size-btn v-size" data-size="7">太</button>
+        </div>
+        <button type="button" id="viewEraserBtn" class="tool-btn">消しゴム</button>
+        <button type="button" id="viewUndoBtn" class="tool-btn">↩ 戻す</button>
+        <button type="button" id="viewClearBtn" class="tool-btn danger">消去</button>
+      </div>
+    </div>
+
+    <!-- キャンバス -->
+    <div class="canvas-wrap">
+      <canvas id="viewCanvas" width="1024" height="635"></canvas>
+    </div>
+
+    <div class="modal-foot">
+      <button type="button" id="closeViewModalBtn" class="modal-close-btn">閉じる</button>
+    </div>
+  </dialog>
+
+  <!-- 共有リンクモーダル -->
+  <dialog id="shareDialog" class="share-dialog">
+    <form method="dialog">
+      <h3 style="margin: 0 0 0.4rem; font-size: 1.1rem;">共有リンク</h3>
+      <div class="share-mode-toggle">
+        <button type="button" id="shareModeEdit" class="share-mode-btn">編集用</button>
+        <button type="button" id="shareModeView" class="share-mode-btn">タブレット閲覧</button>
+        <button type="button" id="shareModeMobile" class="share-mode-btn on">スマホ閲覧</button>
+      </div>
+      <p id="shareDesc" style="font-size: 0.78rem; color: var(--muted); margin: 0.4rem 0;">スマホ閲覧用：スマホの縦画面サイズに特化した専用画面です</p>
+      <div style="text-align: center; margin: 0.8rem 0;">
+        <img id="qrImg" alt="QR Code" style="width: 160px; height: 160px; border: 1px solid var(--line); border-radius: 8px; display: inline-block;">
+      </div>
+      <input id="shareUrlInput" readonly style="font-size: 0.78rem; width: 100%; padding: 0.4rem; background: #f8fafc; border: 1px solid var(--line); border-radius: 6px; text-align: center; margin-bottom: 0.6rem;">
+      <div style="display: flex; gap: 0.4rem;">
+        <button type="button" id="copyShareUrlBtn" style="flex: 1; background: var(--primary); color: #fff; border: none; border-radius: 6px; padding: 0.45rem; font-weight: 700; font-size: 0.85rem; cursor: pointer;">URLをコピー</button>
+        <button style="background: #f1f5f9; border: 1px solid var(--line); border-radius: 6px; padding: 0.45rem 0.8rem; font-size: 0.85rem; cursor: pointer;">閉じる</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="config.js?v=14"></script>
+  <script src="store.js?v=14"></script>
+  <script src="mobile.js?v=1"></script>
+</body>
+</html>
