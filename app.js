@@ -1366,10 +1366,6 @@
       };
     }
 
-    $('#cancelDrawBtn').onclick = () => {
-      $('#drawDialog').close();
-    };
-
     // 閲覧用ホワイトボードキャンバスのイベント
     if (viewCanvas && viewCtx) {
       let isDrawing = false;
