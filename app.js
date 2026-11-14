@@ -58,7 +58,7 @@
     { key: 'hash', label: 'Hash', type: 'buttons', options: ['L', 'M', 'R'] },
     { key: 'down', key2: 'dist', label: 'Down & Distance', type: 'downdist' },
     { key: 'personnel', label: 'Personnel', type: 'text', inputMode: 'numeric' },
-    { key: 'formation', label: 'OFF Formation', type: 'text', capitalize: true, presets: FORMATION_PRESETS },
+    { key: 'formation', label: 'OFF Formation', type: 'text', capitalize: true, presets: FORMATION_PRESETS, presetsOnly: true },
     // upperWords: どう打っても全部大文字にする単語
     { key: 'play', label: 'Play', type: 'text', capitalize: true, upperWords: ['RPO', 'PAP'] },
     { key: 'defSign', label: 'Def Sign', type: 'text', capitalize: true },
@@ -388,6 +388,11 @@
         let activeIndex = -1;
 
         function updateCachedOptions() {
+          if (f.presetsOnly && Array.isArray(f.presets)) {
+            // 手打ちによる打ち間違いを学習させず、登録マスタ（36種）のみを元の順序で候補にする
+            cachedOptions = f.presets.map((val) => ({ value: clean(val), count: 0 }));
+            return;
+          }
           const freq = {};
           if (Array.isArray(f.presets)) {
             f.presets.forEach((val) => {
@@ -449,7 +454,7 @@
             const textSpan = el('span', 'suggest-text');
             renderMatchText(textSpan, item.value, q);
             li.appendChild(textSpan);
-            if (item.count > 1) {
+            if (item.count > 1 && !f.presetsOnly) {
               li.appendChild(el('span', 'suggest-count', `${item.count}回`));
             }
             li.addEventListener('mousedown', (e) => {
