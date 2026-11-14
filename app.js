@@ -357,6 +357,9 @@
       c.set(p ? p[f.key] : '', p);
       if (c.refreshChoices) c.refreshChoices();
     }
+    if ($('#openDrawBtn')) {
+      $('#openDrawBtn').textContent = p?.drawing ? '✎ 作図を編集' : '🎨 Play図を描く';
+    }
   }
 
   function applyRole() {
@@ -572,13 +575,23 @@
       // Play図セル
       const drawTd = el('td', 'play-draw-cell');
       if (p.drawing) {
-        const btn = el('button', 'draw-btn-has', '🎨 見る');
-        btn.type = 'button';
-        btn.onclick = (e) => {
-          e.stopPropagation();
-          openViewDraw(p);
-        };
-        drawTd.appendChild(btn);
+        if (isViewOnly) {
+          const btn = el('button', 'draw-btn-has', '🎨 見る');
+          btn.type = 'button';
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            openViewDraw(p);
+          };
+          drawTd.appendChild(btn);
+        } else {
+          const btn = el('button', 'draw-btn-has', '✎ 作図を編集');
+          btn.type = 'button';
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            openDrawing(p.id);
+          };
+          drawTd.appendChild(btn);
+        }
       } else {
         const btn = el('button', 'draw-btn-empty', isViewOnly ? '＋ ボード' : '＋ 作図');
         btn.type = 'button';
