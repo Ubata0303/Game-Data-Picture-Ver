@@ -55,7 +55,6 @@
   let selectedId = null;
   let prevUpdated = {};
   let lastNewestId = null;
-  let pendingFollow = false;
   let isViewOnly = false;
   const controls = {};
 
@@ -86,12 +85,51 @@
 
   function save(key, value, pid = selectedId) {
     if (value === null) return; // 入力値が不正
-    if (!currentGameId || !pid) { toast('先に「＋ 次のプレー」で行を追加してください'); return; }
+    if (!currentGameId || !pid) { toast('編集する行を選択してください'); return; }
     const p = plays.find((x) => x.id === pid);
     if (p && (p[key] ?? '') === value) return;
     store.updatePlay(currentGameId, pid, {
       [key]: value, updatedBy: me, updatedByClient: clientId, updatedAt: Date.now(),
     });
+  }
+
+  function focusNextInputOrRow(currentKey) {
+    const activeKeys = FIELDS.filter((f) => roleHas(f.key)).map((f) => f.key);
+    const curIdx = activeKeys.indexOf(currentKey);
+    if (curIdx === -1 || curIdx === activeKeys.length - 1) {
+      // 最後の項目なら次の行へ進み、最初の入力項目にフォーカス
+      const firstKey = activeKeys[0] || 'qtr';
+      selectNextRow({ focusKey: firstKey });
+    } else {
+      // 次の入力項目へ移動
+      const nextKey = activeKeys[curIdx + 1];
+      controls[nextKey]?.focus?.();
+    }
+  }
+
+  function selectNextRow({ focusKey, scroll = true } = {}) {
+    if (!plays.length) return;
+    const curIdx = plays.findIndex((p) => p.id === selectedId);
+    let nextIdx = curIdx + 1;
+    if (curIdx === -1) nextIdx = 0;
+
+    // 100行に近づいたら自動で+20行拡張
+    if (nextIdx >= plays.length - 5) {
+      if (store.addPlaysBulk && currentGameId) {
+        store.addPlaysBulk(currentGameId, 20);
+      }
+    }
+    if (nextIdx >= plays.length) return;
+
+    const nextPlay = plays[nextIdx];
+    if (nextPlay) {
+      selectPlay(nextPlay.id, { scroll: true });
+      if (focusKey) {
+        setTimeout(() => {
+          controls[focusKey]?.focus?.();
+        }, 60);
+      }
+    }
   }
 
   // フォーカス時点のプレーIDを覚えておき、途中で選択が変わっても正しい行に保存する
@@ -106,6 +144,14 @@
     input.addEventListener('change', () => {
       clearTimeout(timer);
       save(key, getValue(), pid || selectedId);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing) {
+        clearTimeout(timer);
+        save(key, getValue(), pid || selectedId);
+        e.preventDefault();
+        focusNextInputOrRow(key);
+      }
     });
   }
 
@@ -173,6 +219,7 @@
           set: (v) => {
             if (document.activeElement !== input) { input.value = v ?? ''; input.classList.remove('invalid'); }
           },
+          focus: () => { input.focus(); input.select(); },
         };
       }
       case 'number': {
@@ -199,6 +246,7 @@
           set: (v) => {
             if (document.activeElement !== input) { input.value = v ?? ''; input.classList.remove('invalid'); }
           },
+          focus: () => { input.focus(); input.select(); },
         };
       }
       case 'downdist': {
@@ -220,12 +268,20 @@
         down.addEventListener('input', () => {
           if (/^[1-4]$/.test(down.value.trim())) { dist.focus(); dist.select(); }
         });
+        dist.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.isComposing) {
+            save(f.key2, dist.value.trim().toUpperCase(), selectedId);
+            e.preventDefault();
+            focusNextInputOrRow(f.key);
+          }
+        });
         body.append(down, dash, dist);
         return {
           set: (v, p) => {
             if (document.activeElement !== down) { down.value = v ?? ''; down.classList.remove('invalid'); }
             if (document.activeElement !== dist) dist.value = p?.[f.key2] ?? '';
           },
+          focus: () => { down.focus(); down.select(); },
         };
       }
       case 'text': {
@@ -257,6 +313,7 @@
         body.append(input, dl, chips);
         return {
           set: (v) => { if (document.activeElement !== input) input.value = v ?? ''; },
+          focus: () => { input.focus(); input.select(); },
           // この試合でよく使われた値をワンタップ候補として表示
           refreshChoices: () => {
             const freq = {};
@@ -324,15 +381,17 @@
     applyRole();
   }
 
-  function selectPlay(id, { fromUser = false } = {}) {
+  function selectPlay(id, { fromUser = false, scroll = false } = {}) {
     if (editorFocused()) document.activeElement.blur();
     selectedId = id;
-    if (fromUser) {
-      // 過去のプレーを修正するときは追従を自動でオフにする
-      $('#followLatest').checked = id === newestId();
-    }
     renderTable();
     syncEditor();
+    if (scroll) {
+      setTimeout(() => {
+        const selTr = $('#playTable tbody tr.selected');
+        if (selTr) selTr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }, 50);
+    }
   }
 
   // ---------- Hudl風 絞り込みフィルター（閲覧専用） ----------
@@ -553,34 +612,33 @@
   }
 
   function onPlays(list) {
-    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) || a.id.localeCompare(b.id));
+    list.sort((a, b) => (a.seq || 0) - (b.seq || 0) || (a.createdAt || 0) - (b.createdAt || 0) || a.id.localeCompare(b.id));
     plays = list;
-    if (selectedId && !plays.find((p) => p.id === selectedId)) selectedId = null;
 
-    const nid = newestId();
-    const follow = $('#followLatest').checked;
-    if (follow && nid && (nid !== lastNewestId || !selectedId)) {
-      if (editorFocused()) pendingFollow = true; // 入力中は邪魔しない。入力を終えたら移動
-      else selectedId = nid;
+    // 初回100行を自動確保
+    if (currentGameId && plays.length === 0 && !isViewOnly) {
+      store.ensureInitialPlays(currentGameId, 100);
+      return;
     }
-    const added = nid !== lastNewestId && lastNewestId !== null;
-    lastNewestId = nid;
+
+    if (selectedId && !plays.find((p) => p.id === selectedId)) selectedId = null;
+    // 最初の行をデフォルト選択
+    if (!selectedId && plays.length > 0 && !isViewOnly) {
+      selectedId = plays[0].id;
+    }
 
     renderTable();
     syncEditor();
     plays.forEach((p) => { prevUpdated[p.id] = p.updatedAt; });
-    if (added && follow) {
-      const wrap = $('.table-wrap');
-      wrap.scrollTop = wrap.scrollHeight;
-    }
 
     if (isViewOnly) {
       refreshHudlFilters();
-      const last = plays[plays.length - 1];
-      if (last) {
-        const idx = plays.length;
-        const dd = last.down ? `${ORD[last.down] || last.down} & ${last.dist || '?'}` : '';
-        const parts = [`#${idx}`, last.qtr && `Q${last.qtr}`, last.series && `S${last.series}`, dd, last.hash && `Hash ${last.hash}`];
+      // 入力済みの最新プレーを後ろから探す
+      const lastInputPlay = [...plays].reverse().find((p) => p.down || p.play || p.series || p.defSign);
+      if (lastInputPlay) {
+        const idx = plays.indexOf(lastInputPlay) + 1;
+        const dd = lastInputPlay.down ? `${ORD[lastInputPlay.down] || lastInputPlay.down} & ${lastInputPlay.dist || '?'}` : '';
+        const parts = [`#${idx}`, lastInputPlay.qtr && `Q${lastInputPlay.qtr}`, lastInputPlay.series && `S${lastInputPlay.series}`, dd, lastInputPlay.hash && `Hash ${lastInputPlay.hash}`];
         $('#viewBanner').textContent = '現在の最新状況: ' + (parts.filter(Boolean).join('   ') || '（未入力）');
       } else {
         $('#viewBanner').textContent = 'まだプレーがありません';
@@ -590,22 +648,34 @@
     updateStatus();
   }
 
-  function addPlay(newSeries) {
-    const last = plays[plays.length - 1];
+  function handleNewSeries() {
+    let p = selectedPlay();
+    if (!p) {
+      if (plays.length > 0) {
+        p = plays[0];
+        selectPlay(p.id, { scroll: true });
+      } else {
+        return;
+      }
+    }
+    const curIdx = plays.indexOf(p);
+    let maxSeries = 0;
+    for (let i = 0; i < curIdx; i++) {
+      const s = parseInt(plays[i].series, 10);
+      if (!isNaN(s) && s > maxSeries) maxSeries = s;
+    }
+    const nextSeries = String(maxSeries + 1);
     const now = Date.now();
-    const data = {
-      qtr: last?.qtr || '1',
-      series: newSeries ? String((parseInt(last?.series, 10) || 0) + 1) : (last?.series || '1'),
-      hash: '',
-      down: newSeries ? '1' : '', dist: newSeries ? '10' : '',
-      personnel: '', formation: '', play: '', defSign: '',
-      createdAt: now, createdBy: me,
-      updatedAt: now, updatedBy: me, updatedByClient: clientId,
+    const patch = {
+      series: nextSeries,
+      down: '1',
+      dist: '10',
+      updatedAt: now,
+      updatedBy: me,
+      updatedByClient: clientId,
     };
-    const id = store.addPlay(currentGameId, data);
-    $('#followLatest').checked = true;
-    lastNewestId = id;
-    selectPlay(id);
+    store.updatePlay(currentGameId, p.id, patch);
+    toast(`シリーズ S${nextSeries}（1st & 10）を設定しました`);
   }
 
   function exportCsv() {
@@ -854,7 +924,7 @@
     const idx = plays.indexOf(p) + 1;
     const dd = p.down ? `${ORD[p.down] || p.down} & ${p.dist || '?'}` : '';
     $('#drawModalTitle').textContent = `Play図作成: #${idx} ${p.qtr ? 'Q' + p.qtr : ''} ${dd}`;
-    $('#drawModalSubtitle').textContent = `${p.formation || '体型未設定'} / ${p.play || 'Play未設定'}`;
+    $('#drawModalSubtitle').textContent = `${p.formation || '体型未設定'} / ${p.play || 'Play未設定'} / ${p.defSign || 'Def未設定'}`;
 
     if (p.drawing) {
       const img = new Image();
@@ -875,7 +945,7 @@
     const idx = plays.indexOf(p) + 1;
     const dd = p.down ? `${ORD[p.down] || p.down} & ${p.dist || '?'}` : '';
     $('#viewDrawTitle').textContent = `Play図: #${idx} ${p.qtr ? 'Q' + p.qtr : ''} ${dd}`;
-    $('#viewDrawSubtitle').textContent = `${p.formation || '体型未設定'} / ${p.play || 'Play未設定'}`;
+    $('#viewDrawSubtitle').textContent = `${p.formation || '体型未設定'} / ${p.play || 'Play未設定'} / ${p.defSign || 'Def未設定'}`;
     $('#viewDrawImg').src = p.drawing;
 
     $('#editFromViewDrawBtn').classList.toggle('hidden', isViewOnly);
@@ -938,13 +1008,19 @@
       $('#newGameName').value = '';
       location.hash = '#/game/' + id;
     });
-    $('#addPlayBtn').onclick = () => addPlay(false);
-    $('#newSeriesBtn').onclick = () => addPlay(true);
+    $('#nextPlayBtn').onclick = () => selectNextRow();
+    $('#newSeriesBtn').onclick = handleNewSeries;
     $('#deleteBtn').onclick = () => {
       const p = selectedPlay();
       if (!p) return;
-      if (confirm(`#${plays.indexOf(p) + 1} のプレーを削除しますか？（全員の画面から消えます）`)) {
-        store.deletePlay(currentGameId, p.id);
+      const idx = plays.indexOf(p) + 1;
+      if (confirm(`#${idx} のプレー内容をクリアしますか？`)) {
+        store.updatePlay(currentGameId, p.id, {
+          qtr: '', series: '', hash: '', down: '', dist: '',
+          personnel: '', formation: '', play: '', defSign: '', drawing: null,
+          updatedAt: Date.now(), updatedBy: me, updatedByClient: clientId,
+        });
+        toast(`#${idx} の内容をクリアしました`);
       }
     };
     $('#csvBtn').onclick = exportCsv;
@@ -1099,10 +1175,6 @@
       $('#viewDrawDialog').close();
     };
 
-    $('#followLatest').addEventListener('change', (e) => {
-      if (e.target.checked && newestId()) selectPlay(newestId());
-    });
-
     // 閲覧用画面の絞り込みイベント（Hudl風）
     $('#clearFilterBtn').onclick = clearAllHudlFilters;
     document.addEventListener('click', (e) => {
@@ -1111,9 +1183,6 @@
       }
     });
 
-    $('#editor').addEventListener('focusout', () => setTimeout(() => {
-      if (pendingFollow && !editorFocused()) { pendingFollow = false; selectPlay(newestId()); }
-    }, 0));
     window.addEventListener('online', () => updateStatus());
     window.addEventListener('offline', () => updateStatus());
     window.addEventListener('hashchange', route);

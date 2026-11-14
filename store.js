@@ -84,6 +84,14 @@
       const id = uid();
       d.games[id] = { ...data, createdAt: Date.now() };
       d.plays[id] = {};
+      const baseTime = Date.now();
+      for (let i = 1; i <= 100; i++) {
+        const pid = uid();
+        d.plays[id][pid] = {
+          seq: i,
+          createdAt: baseTime + i * 10,
+        };
+      }
       this._save(d);
       return id;
     }
@@ -126,6 +134,42 @@
       this._save(d);
       this._publish({ type: 'ADD_PLAY', gid, id, data });
       return id;
+    }
+
+    ensureInitialPlays(gid, count = 100) {
+      const d = this._load();
+      d.plays[gid] ||= {};
+      const currentCount = Object.keys(d.plays[gid]).length;
+      if (currentCount >= count) return;
+      const baseTime = Date.now();
+      const newItems = {};
+      for (let i = currentCount + 1; i <= count; i++) {
+        const pid = uid();
+        const pData = { seq: i, createdAt: baseTime + i * 10 };
+        d.plays[gid][pid] = pData;
+        newItems[pid] = pData;
+      }
+      this._save(d);
+      this._publish({ type: 'ADD_PLAYS_BULK', gid, plays: newItems });
+      this._emit();
+    }
+
+    addPlaysBulk(gid, addCount = 20) {
+      const d = this._load();
+      d.plays[gid] ||= {};
+      const currentCount = Object.keys(d.plays[gid]).length;
+      const baseTime = Date.now();
+      const newItems = {};
+      for (let i = 1; i <= addCount; i++) {
+        const pid = uid();
+        const seq = currentCount + i;
+        const pData = { seq, createdAt: baseTime + seq * 10 };
+        d.plays[gid][pid] = pData;
+        newItems[pid] = pData;
+      }
+      this._save(d);
+      this._publish({ type: 'ADD_PLAYS_BULK', gid, plays: newItems });
+      this._emit();
     }
 
     updatePlay(gid, pid, patch) {
@@ -346,6 +390,10 @@
       // 通常のアクション
       if (msg.type === 'ADD_PLAY') {
         (d.plays[msg.gid] ||= {})[msg.id] = msg.data;
+        this._save(d);
+      } else if (msg.type === 'ADD_PLAYS_BULK') {
+        (d.plays[msg.gid] ||= {});
+        Object.assign(d.plays[msg.gid], msg.plays || {});
         this._save(d);
       } else if (msg.type === 'UPDATE_PLAY') {
         if (d.plays[msg.gid] && d.plays[msg.gid][msg.pid]) {
