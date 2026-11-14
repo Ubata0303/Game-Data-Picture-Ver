@@ -11,6 +11,46 @@
     return e;
   };
 
+  // 事前登録用の隊形マスタ（未入力状態でもサジェスト候補に表示）
+  const FORMATION_PRESETS = [
+    'Gun Ace',
+    'Gun Ace Slot',
+    'Ace',
+    'Ace Slot',
+    'Gun Trio',
+    'Gun Trio Slot',
+    'Trio',
+    'Trio Slot',
+    'Gun Bunch',
+    'Gun Bunch Open',
+    'Gun Far Bunch Open',
+    'Bunch',
+    'Bunch Open',
+    'Far Bunch Open',
+    'Gun Spread',
+    'Spread',
+    'Gun Spread Wing',
+    'Spread Wing',
+    'Gun Spread Slot',
+    'Spread Slot',
+    'Gun Tray',
+    'Tray',
+    'Gun Tray Open',
+    'Tray Open',
+    'Gun Twin Terrier',
+    'Gun Twin Warrior',
+    'Twin Terrier',
+    'Twin Warrior',
+    'Gun Flex Terrier',
+    'Gun Flex Warrior',
+    'Flex Terrier',
+    'Flex Warrior',
+    'Gun Trips',
+    'Gun Trips Slot',
+    'Trips',
+    'Trips Slot',
+  ];
+
   // ---------- 入力項目の定義（項目を増やすときはここに追加） ----------
   const FIELDS = [
     { key: 'qtr', label: 'Quarter（1〜4 / OT）', type: 'allowed', allowed: ['1', '2', '3', '4', 'OT'] },
@@ -18,7 +58,7 @@
     { key: 'hash', label: 'Hash', type: 'buttons', options: ['L', 'M', 'R'] },
     { key: 'down', key2: 'dist', label: 'Down & Distance', type: 'downdist' },
     { key: 'personnel', label: 'Personnel', type: 'text', inputMode: 'numeric' },
-    { key: 'formation', label: 'OFF Formation', type: 'text', capitalize: true },
+    { key: 'formation', label: 'OFF Formation', type: 'text', capitalize: true, presets: FORMATION_PRESETS },
     // upperWords: どう打っても全部大文字にする単語
     { key: 'play', label: 'Play', type: 'text', capitalize: true, upperWords: ['RPO', 'PAP'] },
     { key: 'defSign', label: 'Def Sign', type: 'text', capitalize: true },
@@ -186,6 +226,38 @@
     return (v) => btns.forEach((b) => b.classList.toggle('on', b.dataset.v === v));
   }
 
+  // サジェスト表示用：文字列の一致部分を <mark> でハイライトして要素に挿入
+  function renderMatchText(container, text, query) {
+    container.innerHTML = '';
+    const q = (query || '').trim().toLowerCase();
+    if (!q) {
+      container.textContent = text;
+      return;
+    }
+    const lowerText = text.toLowerCase();
+    let startIdx = 0;
+    let matchIdx = lowerText.indexOf(q, startIdx);
+
+    if (matchIdx === -1) {
+      container.textContent = text;
+      return;
+    }
+
+    while (matchIdx !== -1) {
+      if (matchIdx > startIdx) {
+        container.appendChild(document.createTextNode(text.slice(startIdx, matchIdx)));
+      }
+      const mark = document.createElement('mark');
+      mark.textContent = text.slice(matchIdx, matchIdx + q.length);
+      container.appendChild(mark);
+      startIdx = matchIdx + q.length;
+      matchIdx = lowerText.indexOf(q, startIdx);
+    }
+    if (startIdx < text.length) {
+      container.appendChild(document.createTextNode(text.slice(startIdx)));
+    }
+  }
+
   function makeControl(f, body) {
     switch (f.type) {
       case 'buttons': {
@@ -285,14 +357,15 @@
         };
       }
       case 'text': {
+        const wrap = el('div', 'suggest-wrap');
         const input = el('input', 'text');
+        input.autocomplete = 'off';
         if (f.inputMode) input.inputMode = f.inputMode;
-        const listId = 'dl_' + f.key;
-        input.setAttribute('list', listId);
         input.placeholder = f.label + ' を入力';
-        const dl = el('datalist');
-        dl.id = listId;
-        const chips = el('div', 'chips');
+        const list = el('ul', 'suggest-list hidden');
+        wrap.append(input, list);
+        body.appendChild(wrap);
+
         const clean = (s) => (f.capitalize ? capitalizeWords(s, f.upperWords) : s).trim();
         if (f.capitalize) {
           // 打った瞬間に各単語の1文字目を大文字に（カーソル位置は維持。日本語変換中は待つ）
@@ -309,26 +382,139 @@
           // 入力を終えたら末尾の単語も含めて最終変換（"zone rpo" → "Zone RPO"）
           input.addEventListener('change', () => { input.value = capitalizeWords(input.value, f.upperWords, true); });
         }
+
+        let cachedOptions = [];
+        let currentMatches = [];
+        let activeIndex = -1;
+
+        function updateCachedOptions() {
+          const freq = {};
+          if (Array.isArray(f.presets)) {
+            f.presets.forEach((val) => {
+              const cleaned = clean(val);
+              if (cleaned) freq[cleaned] = 0;
+            });
+          }
+          plays.forEach((p) => {
+            const v = (p[f.key] || '').trim();
+            if (v) freq[v] = (freq[v] || 0) + 1;
+          });
+          cachedOptions = Object.keys(freq)
+            .sort((a, b) => (freq[b] - freq[a]) || a.localeCompare(b))
+            .map((v) => ({ value: v, count: freq[v] }));
+        }
+
+        function closeList() {
+          list.classList.add('hidden');
+          list.innerHTML = '';
+          currentMatches = [];
+          activeIndex = -1;
+        }
+
+        function selectOption(val) {
+          const cleaned = clean(val);
+          input.value = cleaned;
+          save(f.key, cleaned, selectedId);
+          closeList();
+          focusNextInputOrRow(f.key);
+        }
+
+        function updateHighlight() {
+          const items = list.querySelectorAll('.suggest-item');
+          items.forEach((it, idx) => {
+            it.classList.toggle('active', idx === activeIndex);
+            if (idx === activeIndex) {
+              it.scrollIntoView({ block: 'nearest' });
+            }
+          });
+        }
+
+        function renderList(query) {
+          const q = (query || '').trim().toLowerCase();
+          // 部分一致（substring match）：入力文字列がどこかに含まれるものをすべて抽出
+          currentMatches = q
+            ? cachedOptions.filter((item) => item.value.toLowerCase().includes(q))
+            : cachedOptions;
+
+          if (currentMatches.length === 0) {
+            closeList();
+            return;
+          }
+
+          list.innerHTML = '';
+          activeIndex = -1;
+          // 上位25件を表示
+          currentMatches.slice(0, 25).forEach((item) => {
+            const li = el('li', 'suggest-item');
+            const textSpan = el('span', 'suggest-text');
+            renderMatchText(textSpan, item.value, q);
+            li.appendChild(textSpan);
+            if (item.count > 1) {
+              li.appendChild(el('span', 'suggest-count', `${item.count}回`));
+            }
+            li.addEventListener('mousedown', (e) => {
+              e.preventDefault(); // inputのblurを防いで確実に選択
+              selectOption(item.value);
+            });
+            list.appendChild(li);
+          });
+          list.classList.remove('hidden');
+        }
+
+        input.addEventListener('focus', () => {
+          updateCachedOptions();
+          renderList(input.value);
+        });
+
+        input.addEventListener('input', () => {
+          renderList(input.value);
+        });
+
+        input.addEventListener('blur', () => {
+          setTimeout(closeList, 150);
+        });
+
+        input.addEventListener('keydown', (e) => {
+          if (e.isComposing) return;
+          if (e.key === 'ArrowDown') {
+            if (list.classList.contains('hidden')) {
+              renderList(input.value);
+            } else if (currentMatches.length > 0) {
+              const maxIdx = Math.min(currentMatches.length, 25);
+              activeIndex = (activeIndex + 1) % maxIdx;
+              updateHighlight();
+            }
+            e.preventDefault();
+          } else if (e.key === 'ArrowUp') {
+            if (!list.classList.contains('hidden') && currentMatches.length > 0) {
+              const maxIdx = Math.min(currentMatches.length, 25);
+              activeIndex = (activeIndex - 1 + maxIdx) % maxIdx;
+              updateHighlight();
+            }
+            e.preventDefault();
+          } else if (e.key === 'Escape') {
+            closeList();
+          } else if (e.key === 'Enter') {
+            if (!list.classList.contains('hidden') && activeIndex >= 0 && currentMatches[activeIndex]) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              selectOption(currentMatches[activeIndex].value);
+              return;
+            }
+            closeList();
+          }
+        });
+
         bindInput(input, f.key, () => clean(input.value));
-        body.append(input, dl, chips);
+
         return {
           set: (v) => { if (document.activeElement !== input) input.value = v ?? ''; },
           focus: () => { input.focus(); input.select(); },
-          // この試合でよく使われた値をワンタップ候補として表示
           refreshChoices: () => {
-            const freq = {};
-            plays.forEach((p) => { const v = (p[f.key] || '').trim(); if (v) freq[v] = (freq[v] || 0) + 1; });
-            const sorted = Object.keys(freq).sort((a, b) => freq[b] - freq[a]);
-            dl.innerHTML = '';
-            sorted.forEach((v) => { const o = el('option'); o.value = v; dl.appendChild(o); });
-            chips.innerHTML = '';
-            const cur = selectedPlay()?.[f.key] ?? '';
-            sorted.slice(0, 10).forEach((v) => {
-              const c = el('button', 'chip' + (v === cur ? ' on' : ''), v);
-              c.type = 'button';
-              c.onclick = () => { input.value = v; save(f.key, v); };
-              chips.appendChild(c);
-            });
+            updateCachedOptions();
+            if (document.activeElement === input) {
+              renderList(input.value);
+            }
           },
         };
       }
