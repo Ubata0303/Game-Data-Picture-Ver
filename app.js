@@ -1008,11 +1008,14 @@
   paintCanvas.height = 635;
   const pCtx = paintCanvas.getContext('2d');
 
-  function drawFieldTemplate(tCtx, w, h) {
+  // 白背景の描画
+  function drawFieldBg(tCtx, w, h) {
     tCtx.fillStyle = '#ffffff';
     tCtx.fillRect(0, 0, w, h);
+  }
 
-    // 比率計算（ユーザー提供の1024 x 635画像完全準拠）
+  // フィールドの枠線・ヤード線・OL（手書き線の上から常に保護描画）
+  function drawFieldLines(tCtx, w, h) {
     const scale = w / 1024;
     const leftX = w * (39 / 1024);
     const rightX = w * (984 / 1024);
@@ -1026,7 +1029,6 @@
     tCtx.strokeRect(leftX, topY, rightX - leftX, boxHeight);
 
     // ヤードライン (15, 10, 5, 0)
-    // 上枠は20yd相当（間隔 116.5px）
     const yardSpacing = boxHeight * (116.5 / 608);
     const lines = [
       { yard: 15, y: topY + yardSpacing },
@@ -1039,7 +1041,6 @@
     tCtx.font = `bold ${Math.round(18 * scale)}px -apple-system, BlinkMacSystemFont, sans-serif`;
 
     lines.forEach((l) => {
-      // 水平線（外枠の左端から右端まで）
       tCtx.beginPath();
       tCtx.strokeStyle = '#000000';
       tCtx.lineWidth = (l.yard === 0) ? Math.max(2, 2.5 * scale) : Math.max(1.5, 1.8 * scale);
@@ -1047,17 +1048,13 @@
       tCtx.lineTo(rightX, l.y);
       tCtx.stroke();
 
-      // 左の数字（枠の外側）
       tCtx.fillStyle = '#000000';
       tCtx.textAlign = 'center';
       tCtx.fillText(String(l.yard), leftX / 2, l.y);
-
-      // 右の数字（枠の外側）
       tCtx.fillText(String(l.yard), rightX + (w - rightX) / 2, l.y);
     });
 
     // オフェンスライン（OL 5人）
-    // LOS (0yd) の少し下
     const losY = topY + yardSpacing * 4;
     const olY = losY + (19 * scale);
     const r = 11 * scale;
@@ -1098,25 +1095,25 @@
     });
   }
 
+  function drawFieldTemplate(tCtx, w, h) {
+    drawFieldBg(tCtx, w, h);
+    drawFieldLines(tCtx, w, h);
+  }
+
   function redrawCanvas() {
     if (!ctx || !pCtx) return;
-    // 1. 背景を描画（旧形式の合成画像があればそれ、無ければ常にクリーンなフィールドテンプレート）
-    if (drawBaseImg) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(drawBaseImg, 0, 0, canvas.width, canvas.height);
-    } else {
-      drawFieldTemplate(ctx, canvas.width, canvas.height);
-    }
+    // 1. メインキャンバスの背景を白で塗りつぶす
+    drawFieldBg(ctx, canvas.width, canvas.height);
 
     // 2. 透明手書きレイヤーをクリア
     pCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
 
-    // 3. 前回保存された手書き線（透明レイヤー）があれば下地として描画
+    // 3. 前回保存された手書き線（過去の画像または手書きレイヤー）があれば下地として描画
     if (savedStrokeImg) {
       pCtx.drawImage(savedStrokeImg, 0, 0, paintCanvas.width, paintCanvas.height);
     }
 
-    // 4. 今回のセッションで描いたストロークを透明レイヤーに描画（消しゴムは前回の線ごとくり抜き消去）
+    // 4. 今回のセッションで描いたストロークを透明レイヤーに描画（消しゴムは前回の線ごと消去！）
     drawPaths.forEach((stroke) => {
       if (stroke.points.length < 1) return;
       pCtx.save();
@@ -1140,8 +1137,11 @@
       pCtx.restore();
     });
 
-    // 5. メインキャンバスに重ねて合成
+    // 5. 手書きレイヤーをメインキャンバスに合成
     ctx.drawImage(paintCanvas, 0, 0);
+
+    // 6. フィールドの枠線・ヤード線・OLを最前面に保護描画（消しゴムで絶対に消えない！）
+    drawFieldLines(ctx, canvas.width, canvas.height);
   }
 
   function getCanvasPos(e) {
@@ -1174,22 +1174,15 @@
     drawBaseImg = null;
     savedStrokeImg = null;
 
-    if (p.drawingLayer) {
-      // 透明手書きレイヤー（前回保存した線も消しゴムで消せる新仕様）
+    // 過去の作図データ（drawingLayer があればそれを優先、なければ以前の drawing 画像）
+    const targetUrl = p.drawingLayer || p.drawing;
+    if (targetUrl) {
       const img = new Image();
       img.onload = () => {
         savedStrokeImg = img;
         redrawCanvas();
       };
-      img.src = p.drawingLayer;
-    } else if (p.drawing) {
-      // 過去に作成された合成画像（旧仕様への互換フォールバック）
-      const img = new Image();
-      img.onload = () => {
-        drawBaseImg = img;
-        redrawCanvas();
-      };
-      img.src = p.drawing;
+      img.src = targetUrl;
     } else {
       redrawCanvas();
     }
@@ -1490,14 +1483,10 @@
         pCtx.stroke();
         pCtx.restore();
 
-        // メインキャンバスを再合成（背景 + 透明手書きレイヤー）
-        if (drawBaseImg) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(drawBaseImg, 0, 0, canvas.width, canvas.height);
-        } else {
-          drawFieldTemplate(ctx, canvas.width, canvas.height);
-        }
+        // メインキャンバスを再合成（白背景 + 手書き + 最前面フィールド線）
+        drawFieldBg(ctx, canvas.width, canvas.height);
         ctx.drawImage(paintCanvas, 0, 0);
+        drawFieldLines(ctx, canvas.width, canvas.height);
       });
 
       const endDrawing = (e) => {
