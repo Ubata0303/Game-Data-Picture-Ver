@@ -55,9 +55,8 @@
 
   // URLハッシュから GameId 抽出
   function parseGameId() {
-    const hash = location.hash || '';
-    const m = hash.match(/^#\/?(view\/)?([a-zA-Z0-9_-]+)/);
-    return m ? m[2] : null;
+    const raw = (location.hash || '').replace(/^#\/?(view\/|game\/)?/, '').split('?')[0].trim();
+    return raw || null;
   }
 
   function matchesFilter(p) {
@@ -600,18 +599,21 @@
       return;
     }
 
-    if (typeof window.initStore !== 'function') {
-      alert('store.js が読み込まれていません');
+    try {
+      if (typeof window.createStore !== 'function') {
+        throw new Error('store.js が読み込まれていません');
+      }
+      store = await window.createStore();
+    } catch (e) {
+      alert('通信の初期化に失敗しました。ネット接続を確認してください。\n' + e.message);
       return;
     }
 
-    store = window.initStore({
-      onStatus: (st) => {
-        const b = $('#connStatus');
-        if (!b) return;
-        b.className = 'status-badge ' + (st === 'online' ? 'ok' : (st === 'syncing' ? 'warn' : 'bad'));
-        b.textContent = (st === 'online' ? '🟢 接続中' : (st === 'syncing' ? '🟡 同期中' : '🔴 切断'));
-      },
+    store.onStatusChange((text, cls) => {
+      const b = $('#connStatus');
+      if (!b) return;
+      b.className = 'status-badge ' + (cls || 'ok');
+      b.textContent = text;
     });
 
     // 試合一覧監視（試合名表示）
@@ -626,6 +628,7 @@
 
     // プレーデータ監視
     unsubPlays = store.subscribePlays(currentGameId, (list) => {
+      list.sort((a, b) => (a.seq || 0) - (b.seq || 0) || (a.createdAt || 0) - (b.createdAt || 0) || a.id.localeCompare(b.id));
       plays = list || [];
       renderFilterBar();
       renderTable();
