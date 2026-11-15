@@ -1000,6 +1000,7 @@
   const canvas = $('#fieldCanvas');
   const ctx = canvas?.getContext('2d');
   let drawBaseImg = null;
+  let savedStrokeImg = null;
 
   // 手書き専用の透明レイヤー（背景と手書きを完全分離し、本物の消しゴムを実現）
   const paintCanvas = document.createElement('canvas');
@@ -1099,7 +1100,7 @@
 
   function redrawCanvas() {
     if (!ctx || !pCtx) return;
-    // 1. 背景を描画（元の絵があればそれ、無ければフィールドテンプレート）
+    // 1. 背景を描画（旧形式の合成画像があればそれ、無ければ常にクリーンなフィールドテンプレート）
     if (drawBaseImg) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(drawBaseImg, 0, 0, canvas.width, canvas.height);
@@ -1110,7 +1111,12 @@
     // 2. 透明手書きレイヤーをクリア
     pCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
 
-    // 3. すべてのストロークを透明レイヤーに描画（消しゴムはくり抜き合成）
+    // 3. 前回保存された手書き線（透明レイヤー）があれば下地として描画
+    if (savedStrokeImg) {
+      pCtx.drawImage(savedStrokeImg, 0, 0, paintCanvas.width, paintCanvas.height);
+    }
+
+    // 4. 今回のセッションで描いたストロークを透明レイヤーに描画（消しゴムは前回の線ごとくり抜き消去）
     drawPaths.forEach((stroke) => {
       if (stroke.points.length < 1) return;
       pCtx.save();
@@ -1134,7 +1140,7 @@
       pCtx.restore();
     });
 
-    // 4. メインキャンバスに重ねて合成
+    // 5. メインキャンバスに重ねて合成
     ctx.drawImage(paintCanvas, 0, 0);
   }
 
@@ -1165,7 +1171,19 @@
     $('#drawModalTitle').textContent = `Play図作成: #${idx} ${p.qtr ? 'Q' + p.qtr : ''} ${dd}`;
     $('#drawModalSubtitle').textContent = `${p.formation || '体型未設定'} / ${p.play || 'Play未設定'} / ${p.defSign || 'Def未設定'}`;
 
-    if (p.drawing) {
+    drawBaseImg = null;
+    savedStrokeImg = null;
+
+    if (p.drawingLayer) {
+      // 透明手書きレイヤー（前回保存した線も消しゴムで消せる新仕様）
+      const img = new Image();
+      img.onload = () => {
+        savedStrokeImg = img;
+        redrawCanvas();
+      };
+      img.src = p.drawingLayer;
+    } else if (p.drawing) {
+      // 過去に作成された合成画像（旧仕様への互換フォールバック）
       const img = new Image();
       img.onload = () => {
         drawBaseImg = img;
@@ -1173,7 +1191,6 @@
       };
       img.src = p.drawing;
     } else {
-      drawBaseImg = null;
       redrawCanvas();
     }
 
@@ -1529,6 +1546,7 @@
       if (confirm('描いた内容をすべて消去しますか？')) {
         drawPaths = [];
         drawBaseImg = null;
+        savedStrokeImg = null;
         redrawCanvas();
       }
     };
@@ -1536,9 +1554,11 @@
     function saveCurrentDrawing() {
       if (!currentGameId || !drawTargetPlayId) return false;
       try {
-        const dataUrl = canvas.toDataURL('image/webp', 0.85);
+        const fullDataUrl = canvas.toDataURL('image/webp', 0.85); // 閲覧・一覧用合成画像
+        const strokeLayerUrl = paintCanvas.toDataURL('image/png'); // 手書き線のみの透明レイヤー（次回再編集用）
         store.updatePlay(currentGameId, drawTargetPlayId, {
-          drawing: dataUrl,
+          drawing: fullDataUrl,
+          drawingLayer: strokeLayerUrl,
           updatedBy: me,
           updatedByClient: clientId,
           updatedAt: Date.now()
