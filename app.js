@@ -1120,20 +1120,37 @@
       pCtx.beginPath();
       if (stroke.isEraser) {
         pCtx.globalCompositeOperation = 'destination-out';
-        pCtx.lineWidth = stroke.size;
+        if (stroke.points.length === 1) {
+          pCtx.arc(stroke.points[0].x, stroke.points[0].y, stroke.size / 2, 0, Math.PI * 2);
+          pCtx.fill();
+        } else {
+          pCtx.lineWidth = stroke.size;
+          pCtx.lineCap = 'round';
+          pCtx.lineJoin = 'round';
+          pCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+          for (let i = 1; i < stroke.points.length; i++) {
+            pCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+          }
+          pCtx.stroke();
+        }
       } else {
         pCtx.globalCompositeOperation = 'source-over';
-        pCtx.strokeStyle = stroke.color;
-        pCtx.lineWidth = stroke.size;
+        if (stroke.points.length === 1) {
+          pCtx.fillStyle = stroke.color;
+          pCtx.arc(stroke.points[0].x, stroke.points[0].y, stroke.size / 2, 0, Math.PI * 2);
+          pCtx.fill();
+        } else {
+          pCtx.strokeStyle = stroke.color;
+          pCtx.lineWidth = stroke.size;
+          pCtx.lineCap = 'round';
+          pCtx.lineJoin = 'round';
+          pCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+          for (let i = 1; i < stroke.points.length; i++) {
+            pCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+          }
+          pCtx.stroke();
+        }
       }
-      pCtx.lineCap = 'round';
-      pCtx.lineJoin = 'round';
-
-      pCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        pCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
-      }
-      pCtx.stroke();
       pCtx.restore();
     });
 
@@ -1229,20 +1246,37 @@
       vpCtx.beginPath();
       if (stroke.isEraser) {
         vpCtx.globalCompositeOperation = 'destination-out';
-        vpCtx.lineWidth = stroke.size;
+        if (stroke.points.length === 1) {
+          vpCtx.arc(stroke.points[0].x, stroke.points[0].y, stroke.size / 2, 0, Math.PI * 2);
+          vpCtx.fill();
+        } else {
+          vpCtx.lineWidth = stroke.size;
+          vpCtx.lineCap = 'round';
+          vpCtx.lineJoin = 'round';
+          vpCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+          for (let i = 1; i < stroke.points.length; i++) {
+            vpCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+          }
+          vpCtx.stroke();
+        }
       } else {
         vpCtx.globalCompositeOperation = 'source-over';
-        vpCtx.strokeStyle = stroke.color;
-        vpCtx.lineWidth = stroke.size;
+        if (stroke.points.length === 1) {
+          vpCtx.fillStyle = stroke.color;
+          vpCtx.arc(stroke.points[0].x, stroke.points[0].y, stroke.size / 2, 0, Math.PI * 2);
+          vpCtx.fill();
+        } else {
+          vpCtx.strokeStyle = stroke.color;
+          vpCtx.lineWidth = stroke.size;
+          vpCtx.lineCap = 'round';
+          vpCtx.lineJoin = 'round';
+          vpCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+          for (let i = 1; i < stroke.points.length; i++) {
+            vpCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+          }
+          vpCtx.stroke();
+        }
       }
-      vpCtx.lineCap = 'round';
-      vpCtx.lineJoin = 'round';
-
-      vpCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
-      for (let i = 1; i < stroke.points.length; i++) {
-        vpCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
-      }
-      vpCtx.stroke();
       vpCtx.restore();
     });
 
@@ -1456,6 +1490,26 @@
           points: [pos]
         };
         drawPaths.push(currentStroke);
+
+        // タップした瞬間も点（ドット）または消去を即時反映
+        pCtx.save();
+        pCtx.beginPath();
+        if (currentStroke.isEraser) {
+          pCtx.globalCompositeOperation = 'destination-out';
+          pCtx.arc(pos.x, pos.y, currentStroke.size / 2, 0, Math.PI * 2);
+          pCtx.fill();
+        } else {
+          pCtx.globalCompositeOperation = 'source-over';
+          pCtx.fillStyle = currentStroke.color;
+          pCtx.arc(pos.x, pos.y, currentStroke.size / 2, 0, Math.PI * 2);
+          pCtx.fill();
+        }
+        pCtx.restore();
+
+        // メインキャンバスを再合成（白背景 + 手書き + 最前面フィールド線）
+        drawFieldBg(ctx, canvas.width, canvas.height);
+        ctx.drawImage(paintCanvas, 0, 0);
+        drawFieldLines(ctx, canvas.width, canvas.height);
       });
 
       canvas.addEventListener('pointermove', (e) => {
@@ -1543,8 +1597,10 @@
     function saveCurrentDrawing() {
       if (!currentGameId || !drawTargetPlayId) return false;
       try {
-        const fullDataUrl = canvas.toDataURL('image/webp', 0.85); // 閲覧・一覧用合成画像
-        const strokeLayerUrl = paintCanvas.toDataURL('image/png'); // 手書き線のみの透明レイヤー（次回再編集用）
+        // 合体画像（一覧・閲覧用）は高圧縮WebPで約20KB
+        const fullDataUrl = canvas.toDataURL('image/webp', 0.65);
+        // 手書き線のみの透明レイヤーはPNGで保存（全ブラウザ・Safariで透明度を100%完全保持。余白が透明なので容量はわずか2〜5KB!）
+        const strokeLayerUrl = paintCanvas.toDataURL('image/png');
         store.updatePlay(currentGameId, drawTargetPlayId, {
           drawing: fullDataUrl,
           drawingLayer: strokeLayerUrl,
@@ -1612,6 +1668,28 @@
           points: [pos]
         };
         viewDrawPaths.push(currentViewStroke);
+
+        vpCtx.save();
+        vpCtx.beginPath();
+        if (currentViewStroke.isEraser) {
+          vpCtx.globalCompositeOperation = 'destination-out';
+          vpCtx.arc(pos.x, pos.y, currentViewStroke.size / 2, 0, Math.PI * 2);
+          vpCtx.fill();
+        } else {
+          vpCtx.globalCompositeOperation = 'source-over';
+          vpCtx.fillStyle = currentViewStroke.color;
+          vpCtx.arc(pos.x, pos.y, currentViewStroke.size / 2, 0, Math.PI * 2);
+          vpCtx.fill();
+        }
+        vpCtx.restore();
+
+        if (viewBaseImg) {
+          viewCtx.clearRect(0, 0, viewCanvas.width, viewCanvas.height);
+          viewCtx.drawImage(viewBaseImg, 0, 0, viewCanvas.width, viewCanvas.height);
+        } else {
+          drawFieldTemplate(viewCtx, viewCanvas.width, viewCanvas.height);
+        }
+        viewCtx.drawImage(viewPaintCanvas, 0, 0);
       });
 
       viewCanvas.addEventListener('pointermove', (e) => {

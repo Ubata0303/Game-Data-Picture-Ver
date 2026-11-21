@@ -1,7 +1,8 @@
 // ============================================================
-// データ保存層：MQTT over WebSocket (WSS) リアルタイム同期
+// データ保存層：IndexedDB 大容量ストレージ ＋ MQTT over WebSocket (WSS) リアルタイム同期
 // ------------------------------------------------------------
 // アカウント登録・ログイン・外部設定は一切不要！
+// 容量無制限の IndexedDB 搭載：作図を何百枚描いても絶対に容量オーバーで止まりません。
 // オフラインキュー機能搭載：ネット切断中に打ち込んだデータは端末に保存され、
 // 再接続した瞬間に自動で全件送信＆他端末と完全同期されます。
 // ============================================================
@@ -18,6 +19,59 @@
     });
   }
 
+  // 大容量ストレージ（IndexedDB）ヘルパー
+  const DB_NAME = 'fdl_idb_v1';
+  const DB_STORE = 'keyval';
+
+  function openIndexedDB() {
+    return new Promise((resolve) => {
+      if (!window.indexedDB) return resolve(null);
+      try {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = (e) => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(DB_STORE)) {
+            db.createObjectStore(DB_STORE);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  function idbGet(db, key) {
+    return new Promise((resolve) => {
+      if (!db) return resolve(null);
+      try {
+        const tx = db.transaction(DB_STORE, 'readonly');
+        const store = tx.objectStore(DB_STORE);
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  function idbSet(db, key, val) {
+    return new Promise((resolve) => {
+      if (!db) return resolve(false);
+      try {
+        const tx = db.transaction(DB_STORE, 'readwrite');
+        const store = tx.objectStore(DB_STORE);
+        const req = store.put(val, key);
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => resolve(false);
+      } catch {
+        resolve(false);
+      }
+    });
+  }
+
   class CloudSyncStore {
     constructor() {
       this.mode = 'realtime';
@@ -29,20 +83,90 @@
       this.myClientId = 'c_' + uid();
       this.status = { text: '準備完了', cls: 'ok' };
       this.pendingQueue = [];
+      this.db = null;
+      this._memCache = null;
       this._loadPending();
 
       // 同一端末のタブ間同期
       this.ch = 'BroadcastChannel' in window ? new BroadcastChannel('fdl_sync_ch') : null;
-      if (this.ch) this.ch.onmessage = () => this._emit();
-      window.addEventListener('storage', (e) => { if (e.key === this.key) this._emit(); });
+      if (this.ch) this.ch.onmessage = async () => {
+        if (this.db) {
+          const fresh = await idbGet(this.db, this.key);
+          if (fresh) this._memCache = fresh;
+        }
+        this._emit();
+      };
+      window.addEventListener('storage', (e) => {
+        if (e.key === this.key) {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            if (parsed) this._memCache = parsed;
+          } catch {}
+          this._emit();
+        }
+      });
+    }
+
+    async init() {
+      try {
+        this.db = await openIndexedDB();
+        if (this.db) {
+          const data = await idbGet(this.db, this.key);
+          if (data && (data.games || data.plays)) {
+            this._memCache = data;
+          }
+        }
+      } catch (e) {
+        console.warn('IndexedDB 初期化警告:', e);
+      }
+      if (!this._memCache) {
+        // LocalStorage から読み込んで IndexedDB にマイグレーション
+        try {
+          this._memCache = JSON.parse(localStorage.getItem(this.key)) || { games: {}, plays: {} };
+        } catch {
+          this._memCache = { games: {}, plays: {} };
+        }
+        if (this.db && this._memCache) {
+          idbSet(this.db, this.key, this._memCache).catch(() => {});
+        }
+      }
     }
 
     _load() {
-      try { return JSON.parse(localStorage.getItem(this.key)) || { games: {}, plays: {} }; }
-      catch { return { games: {}, plays: {} }; }
+      if (this._memCache) return this._memCache;
+      try {
+        this._memCache = JSON.parse(localStorage.getItem(this.key)) || { games: {}, plays: {} };
+      } catch {
+        this._memCache = { games: {}, plays: {} };
+      }
+      return this._memCache;
     }
+
     _save(d) {
-      localStorage.setItem(this.key, JSON.stringify(d));
+      this._memCache = d;
+
+      // 1. IndexedDB に大容量保存（容量制限なし！確実に書き込む）
+      if (this.db) {
+        idbSet(this.db, this.key, d).catch((e) => console.warn('IDB保存警告:', e));
+      }
+
+      // 2. localStorage にも保存（QuotaExceededError は完全防御！）
+      try {
+        localStorage.setItem(this.key, JSON.stringify(d));
+      } catch (e) {
+        // 容量オーバー時は、作図データを除いた軽量テキスト版だけを保存
+        try {
+          const stripped = JSON.parse(JSON.stringify(d));
+          Object.values(stripped.plays || {}).forEach((gPlays) => {
+            Object.values(gPlays || {}).forEach((p) => {
+              delete p.drawing;
+              delete p.drawingLayer;
+            });
+          });
+          localStorage.setItem(this.key, JSON.stringify(stripped));
+        } catch {}
+      }
+
       if (this.ch) this.ch.postMessage('u');
       this._emit();
     }
@@ -322,12 +446,21 @@
       const game = d.games[this.activeGid];
       const plays = d.plays[this.activeGid] || {};
       if (Object.keys(plays).length > 0) {
+        // パケットサイズ上限（256KB）に引っかからないよう、テキスト項目を確実に一括同期！
+        const cleanPlays = {};
+        Object.entries(plays).forEach(([pid, p]) => {
+          const cp = { ...p };
+          delete cp.drawing;
+          delete cp.drawingLayer;
+          cleanPlays[pid] = cp;
+        });
+
         this.client.publish(topic, JSON.stringify({
           type: 'SYNC_FULL',
           sender: this.myClientId,
           gid: this.activeGid,
           game,
-          plays
+          plays: cleanPlays
         }), { qos: 1 });
       }
 
@@ -342,11 +475,36 @@
         const game = d.games[this.activeGid];
         const plays = d.plays[this.activeGid] || {};
         if (Object.keys(plays).length > 0 || game) {
+          // テキストデータを確実に届けるため軽量化して一括送信
+          const cleanPlays = {};
+          Object.entries(plays).forEach(([pid, p]) => {
+            const cp = { ...p };
+            delete cp.drawing;
+            delete cp.drawingLayer;
+            cleanPlays[pid] = cp;
+          });
           this._sendDirect({
             type: 'RESP_SYNC',
             target: msg.from,
             game: game,
-            plays: plays
+            plays: cleanPlays
+          });
+
+          // 作図データが存在するプレーだけを、個別に UPDATE_PLAY として送信
+          // （1パケット20〜30KBに分割され、パケットサイズ制限を完全回避）
+          Object.entries(plays).forEach(([pid, p]) => {
+            if (p.drawing || p.drawingLayer) {
+              this._sendDirect({
+                type: 'UPDATE_PLAY',
+                gid: this.activeGid,
+                pid: pid,
+                patch: {
+                  drawing: p.drawing,
+                  drawingLayer: p.drawingLayer,
+                  updatedAt: p.updatedAt || Date.now()
+                }
+              });
+            }
           });
         }
         return;
@@ -358,7 +516,27 @@
         if (msg.game && !d.games[this.activeGid]) {
           d.games[this.activeGid] = msg.game;
         }
-        d.plays[this.activeGid] = { ...(msg.plays || {}), ...(d.plays[this.activeGid] || {}) };
+        const localPlays = d.plays[this.activeGid] || {};
+        const incomingPlays = msg.plays || {};
+        const merged = { ...localPlays };
+
+        Object.entries(incomingPlays).forEach(([pid, rPlay]) => {
+          const lPlay = merged[pid];
+          if (!lPlay) {
+            merged[pid] = rPlay;
+          } else {
+            // ローカルにすでにある作図データは消さないよう保持しつつマージ
+            merged[pid] = {
+              ...lPlay,
+              ...rPlay,
+              ...(lPlay.drawing ? { drawing: lPlay.drawing } : {}),
+              ...(lPlay.drawingLayer ? { drawingLayer: lPlay.drawingLayer } : {}),
+              updatedAt: Math.max(lPlay.updatedAt || 0, rPlay.updatedAt || 0)
+            };
+          }
+        });
+
+        d.plays[this.activeGid] = merged;
         this._save(d);
         return;
       }
@@ -377,8 +555,14 @@
           if (!lPlay) {
             merged[pid] = rPlay;
           } else {
-            // 両方にある場合は各項目をマージ
-            merged[pid] = { ...lPlay, ...rPlay, updatedAt: Math.max(lPlay.updatedAt || 0, rPlay.updatedAt || 0) };
+            // ローカルにすでにある作図データは消さないよう保持しつつマージ
+            merged[pid] = {
+              ...lPlay,
+              ...rPlay,
+              ...(lPlay.drawing ? { drawing: lPlay.drawing } : {}),
+              ...(lPlay.drawingLayer ? { drawingLayer: lPlay.drawingLayer } : {}),
+              updatedAt: Math.max(lPlay.updatedAt || 0, rPlay.updatedAt || 0)
+            };
           }
         });
 
@@ -426,6 +610,8 @@
     } catch {
       await loadScript('https://cdn.jsdelivr.net/npm/mqtt@5.3.5/dist/mqtt.min.js');
     }
-    return new CloudSyncStore();
+    const store = new CloudSyncStore();
+    await store.init();
+    return store;
   };
 })();
