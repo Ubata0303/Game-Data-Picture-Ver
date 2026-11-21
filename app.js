@@ -152,14 +152,7 @@
     const curIdx = plays.findIndex((p) => p.id === selectedId);
     let nextIdx = curIdx + 1;
     if (curIdx === -1) nextIdx = 0;
-
-    // 100行に近づいたら自動で+20行拡張
-    if (nextIdx >= plays.length - 5) {
-      if (store.addPlaysBulk && currentGameId) {
-        store.addPlaysBulk(currentGameId, 20);
-      }
-    }
-    if (nextIdx >= plays.length) return;
+    if (nextIdx >= plays.length) return; // 枠数の上限（100行）に達したら勝手に拡張しない
 
     const nextPlay = plays[nextIdx];
     if (nextPlay) {
@@ -820,6 +813,12 @@
 
   function onPlays(list) {
     list.sort((a, b) => (a.seq || 0) - (b.seq || 0) || (a.createdAt || 0) - (b.createdAt || 0) || a.id.localeCompare(b.id));
+
+    // 100枠制限：100枠で十分なため、101枠目以降の無駄な空行は非表示にしてスッキリ100枠に収める
+    if (list.length > 100) {
+      const hasData = (p) => p.qtr || p.series || p.hash || p.down || p.dist || p.personnel || p.formation || p.play || p.defSign || p.drawing || p.drawingLayer;
+      list = list.filter((p, idx) => idx < 100 || hasData(p));
+    }
     plays = list;
 
     // 初回100行を自動確保
@@ -1594,9 +1593,42 @@
       }
     };
 
+    // 透明手書きレイヤーに何か描かれているかを判定（1ピクセルでも描画があれば false、完全白紙なら true）
+    function isPaintCanvasBlank() {
+      try {
+        const imgData = pCtx.getImageData(0, 0, paintCanvas.width, paintCanvas.height);
+        const data32 = new Uint32Array(imgData.data.buffer);
+        for (let i = 0; i < data32.length; i++) {
+          if (data32[i] !== 0) return false;
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     function saveCurrentDrawing() {
       if (!currentGameId || !drawTargetPlayId) return false;
       try {
+        const curPlay = plays.find((p) => p.id === drawTargetPlayId);
+        const isBlank = isPaintCanvasBlank();
+
+        if (isBlank) {
+          // 何も描かれていない（白紙）の場合：
+          // もともと絵があった場合は削除して未作図に戻す。元から白紙なら画像保存せず未作図のまま維持。
+          if (curPlay && (curPlay.drawing || curPlay.drawingLayer)) {
+            store.updatePlay(currentGameId, drawTargetPlayId, {
+              drawing: null,
+              drawingLayer: null,
+              updatedBy: me,
+              updatedByClient: clientId,
+              updatedAt: Date.now()
+            });
+          }
+          return true;
+        }
+
+        // 何か手書き線が描かれている場合のみ画像データを保存
         // 合体画像（一覧・閲覧用）は高圧縮WebPで約20KB
         const fullDataUrl = canvas.toDataURL('image/webp', 0.65);
         // 手書き線のみの透明レイヤーはPNGで保存（全ブラウザ・Safariで透明度を100%完全保持。余白が透明なので容量はわずか2〜5KB!）
@@ -1620,18 +1652,13 @@
       if (!saveCurrentDrawing()) return;
       const curIdx = plays.findIndex((p) => p.id === drawTargetPlayId);
       let nextIdx = curIdx + 1;
-      if (nextIdx >= plays.length - 5) {
-        if (store.addPlaysBulk && currentGameId) {
-          store.addPlaysBulk(currentGameId, 20);
-        }
-      }
       const nextPlay = plays[nextIdx];
       if (nextPlay) {
         toast(`#${curIdx + 1} の作図を保存し、次の #${nextIdx + 1} へ進みました`);
         selectPlay(nextPlay.id, { scroll: true });
         openDrawing(nextPlay.id);
       } else {
-        toast('Play図を保存しました！');
+        toast(`作図を保存しました（全${plays.length}枠完了）`);
         $('#drawDialog').close();
       }
     };

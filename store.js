@@ -430,14 +430,22 @@
 
       if (this.pendingQueue.length > 0) {
         console.log(`未送信データ ${this.pendingQueue.length} 件を一括送信中...`);
-        while (this.pendingQueue.length > 0) {
-          const msg = this.pendingQueue.shift();
+        // 【文字最優先レーン】電波が微弱・一瞬の復帰でも文字が絶対に先に届くよう、
+        // 絵（drawing）を含む重いパケットは後回しにし、文字・Playデータを最優先で先頭に並び替えて送信！
+        const isDrawingMsg = (m) => m && m.patch && (m.patch.drawing || m.patch.drawingLayer);
+        const textMsgs = this.pendingQueue.filter((m) => !isDrawingMsg(m));
+        const drawingMsgs = this.pendingQueue.filter((m) => isDrawingMsg(m));
+        const sortedQueue = [...textMsgs, ...drawingMsgs];
+
+        while (sortedQueue.length > 0) {
+          const msg = sortedQueue.shift();
           try {
             this.client.publish(topic, JSON.stringify(msg), { qos: 1 });
           } catch (e) {
             console.warn('再送エラー:', e);
           }
         }
+        this.pendingQueue = [];
         this._savePending();
       }
 
