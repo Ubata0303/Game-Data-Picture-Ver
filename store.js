@@ -755,7 +755,7 @@
       this.activeGid = gid;
       return this.db.collection('games').doc(gid).collection('plays').orderBy('seq', 'asc')
         .onSnapshot({ includeMetadataChanges: true }, (snapshot) => {
-          const list = snapshot.docs.map((doc) => {
+          let list = snapshot.docs.map((doc) => {
             const data = doc.data();
             return {
               id: doc.id,
@@ -763,6 +763,23 @@
               _pending: doc.metadata.hasPendingWrites // 未送信（オフライン）状態の自動判定
             };
           });
+          // FirestoreにまだプレーがなくLocalStorageにある場合、一括移行する
+          if (list.length === 0) {
+            try {
+              const local = JSON.parse(localStorage.getItem('fdl_data_v2') || '{}');
+              const localPlays = Object.entries(local.plays?.[gid] || {}).map(([id, p]) => ({ id, ...p }));
+              if (localPlays.length > 0) {
+                console.log('[Firebase] LocalStorageからプレーデータを復元中...');
+                const batch = this.db.batch();
+                localPlays.forEach((p) => {
+                  const pRef = this.db.collection('games').doc(gid).collection('plays').doc(p.id);
+                  batch.set(pRef, p);
+                });
+                batch.commit().catch(() => {});
+                list = localPlays;
+              }
+            } catch (e) {}
+          }
           cb(list);
         }, (err) => {
           console.error('プレー一覧取得エラー:', err);
