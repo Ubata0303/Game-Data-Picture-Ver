@@ -533,6 +533,18 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   font-weight: 700;
   background: #fafafa;
 }
+/* ---------- ヘッダー（タイトル行）の四方太枠 ---------- */
+.tendency-table thead tr th {
+  border-top: 2.5px solid #334155 !important;
+  border-bottom: 2.5px solid #334155 !important;
+}
+.tendency-table thead tr th:first-child {
+  border-left: 2.5px solid #334155 !important;
+}
+.tendency-table thead tr th:last-child {
+  border-right: 2.5px solid #334155 !important;
+}
+
 /* ---------- 各Downグループ & 合計の四方太枠 ---------- */
 .tendency-table tr.down-group-start td {
   border-top: 2.5px solid #334155 !important;
