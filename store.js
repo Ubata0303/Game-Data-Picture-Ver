@@ -683,16 +683,34 @@
       }
     }
 
-    subscribeGames(cb) {
-      // 1. まず即座にローカルストレージのキャッシュを表示（画面が真っ白になるのを100%防止）
+    _getLocalData() {
       try {
-        const local = JSON.parse(localStorage.getItem('fdl_data_v2') || '{}');
+        const d1 = JSON.parse(localStorage.getItem('fdl_data_v1') || 'null');
+        if (d1 && (d1.games || d1.plays)) return d1;
+      } catch {}
+      try {
+        const d2 = JSON.parse(localStorage.getItem('fdl_data_v2') || 'null');
+        if (d2 && (d2.games || d2.plays)) return d2;
+      } catch {}
+      try {
+        const d0 = JSON.parse(localStorage.getItem('fdl_data') || 'null');
+        if (d0 && (d0.games || d0.plays)) return d0;
+      } catch {}
+      return { games: {}, plays: {} };
+    }
+
+    subscribeGames(cb) {
+      // 1. まず即座にローカルストレージのキャッシュ（v1/v2）を表示（画面が真っ白になるのを100%防止）
+      try {
+        const local = this._getLocalData();
         const localGames = Object.entries(local.games || {}).map(([id, g]) => ({ id, ...g }));
         if (localGames.length > 0) {
           localGames.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
           cb(localGames);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('ローカルキャッシュ取得警告:', e);
+      }
 
       // 2. Firestore からリアルタイムに取得
       return this.db.collection('games')
@@ -701,7 +719,7 @@
           // Firestoreにまだ試合がなくLocalStorageに過去データがある場合は自動復元
           if (list.length === 0) {
             try {
-              const local = JSON.parse(localStorage.getItem('fdl_data_v2') || '{}');
+              const local = this._getLocalData();
               const localGames = Object.entries(local.games || {}).map(([id, g]) => ({ id, ...g }));
               if (localGames.length > 0) {
                 console.log('[Firebase] LocalStorageから試合データを自動復元中...');
@@ -717,7 +735,7 @@
         }, (err) => {
           console.error('試合一覧取得エラー:', err);
           try {
-            const local = JSON.parse(localStorage.getItem('fdl_data_v2') || '{}');
+            const local = this._getLocalData();
             const localGames = Object.entries(local.games || {}).map(([id, g]) => ({ id, ...g }));
             localGames.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
             cb(localGames);
@@ -777,7 +795,7 @@
           // FirestoreにまだプレーがなくLocalStorageにある場合、一括移行する
           if (list.length === 0) {
             try {
-              const local = JSON.parse(localStorage.getItem('fdl_data_v2') || '{}');
+              const local = this._getLocalData();
               const localPlays = Object.entries(local.plays?.[gid] || {}).map(([id, p]) => ({ id, ...p }));
               if (localPlays.length > 0) {
                 console.log('[Firebase] LocalStorageからプレーデータを復元中...');
