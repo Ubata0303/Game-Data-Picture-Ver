@@ -191,10 +191,13 @@
   }
 
   function focusNextInputOrRow(currentKey) {
-    const activeKeys = FIELDS.filter((f) => roleHas(f.key)).map((f) => f.key);
+    // ボタン系項目（runpassやbuttons）はキーボードEnter移動の対象外（手動タップ用）にし、テキスト入力項目のみを順送り
+    const activeKeys = FIELDS
+      .filter((f) => roleHas(f.key) && f.type !== 'runpass' && f.type !== 'buttons')
+      .map((f) => f.key);
     const curIdx = activeKeys.indexOf(currentKey);
     if (curIdx === -1 || curIdx === activeKeys.length - 1) {
-      // 最後の項目なら次の行へ進み、最初の入力項目にフォーカス
+      // 担当内の最後の入力項目（オフェンスならPlay）なら次の行へ進み、最初の入力項目にフォーカス
       const firstKey = activeKeys[0] || 'qtr';
       selectNextRow({ focusKey: firstKey });
     } else {
@@ -321,8 +324,10 @@
         const box = el('div', 'runpass-box');
         const runBtn = el('button', 'runpass-btn btn-run', 'Run');
         runBtn.type = 'button';
+        runBtn.tabIndex = -1;
         const passBtn = el('button', 'runpass-btn btn-pass', 'Pass');
         passBtn.type = 'button';
+        passBtn.tabIndex = -1;
 
         const updateActive = (val) => {
           runBtn.classList.toggle('on', val === 'Run');
@@ -349,7 +354,6 @@
 
         return {
           set: (v) => updateActive(v ?? ''),
-          focus: () => runBtn.focus(),
         };
       }
       case 'allowed': {
