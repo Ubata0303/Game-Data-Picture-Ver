@@ -684,6 +684,17 @@
     }
 
     subscribeGames(cb) {
+      // 1. まず即座にローカルストレージのキャッシュを表示（画面が真っ白になるのを100%防止）
+      try {
+        const local = JSON.parse(localStorage.getItem('fdl_data_v2') || '{}');
+        const localGames = Object.entries(local.games || {}).map(([id, g]) => ({ id, ...g }));
+        if (localGames.length > 0) {
+          localGames.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+          cb(localGames);
+        }
+      } catch (e) {}
+
+      // 2. Firestore からリアルタイムに取得
       return this.db.collection('games')
         .onSnapshot((snapshot) => {
           let list = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
