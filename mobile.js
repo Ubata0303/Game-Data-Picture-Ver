@@ -612,6 +612,10 @@
     store.onStatusChange((text, cls) => {
       const b = $('#connStatus');
       if (!b) return;
+      if (typeof text === 'object' && text !== null) {
+        cls = text.cls;
+        text = text.text;
+      }
       b.className = 'status-badge ' + (cls || 'ok');
       b.textContent = text;
     });

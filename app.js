@@ -900,6 +900,10 @@
   // ---------- ステータス ----------
   function updateStatus(text, cls) {
     const s = $('#status');
+    if (typeof text === 'object' && text !== null) {
+      cls = text.cls;
+      text = text.text;
+    }
     if (text != null) {
       s.textContent = text;
       s.className = 'status ' + (cls || 'ok');

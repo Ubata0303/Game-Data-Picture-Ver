@@ -656,12 +656,12 @@
         el.textContent = text;
         el.className = 'status ' + (cls === 'ok' ? 'connected' : cls === 'warn' ? 'connecting' : 'disconnected');
       }
-      this.statusListeners.forEach((fn) => fn(this.status));
+      this.statusListeners.forEach((fn) => fn(text, cls));
     }
 
     onStatusChange(fn) {
       this.statusListeners.add(fn);
-      fn(this.status);
+      fn(this.status.text, this.status.cls);
       return () => this.statusListeners.delete(fn);
     }
 
