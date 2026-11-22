@@ -376,3 +376,203 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   transition: .2s; pointer-events: none; z-index: 100;
 }
 .toast.show { opacity: 1; transform: translateX(-50%); }
+
+/* ---------- Run / Pass 選択ボタン ---------- */
+.runpass-box {
+  display: flex;
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: 0.2rem;
+}
+.runpass-btn {
+  flex: 1;
+  min-height: 50px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* Run: 赤 */
+.btn-run {
+  background: #fef2f2;
+  border: 2px solid #f87171;
+  color: #dc2626;
+}
+.btn-run:hover {
+  background: #fee2e2;
+}
+.btn-run.on {
+  background: #dc2626 !important;
+  border-color: #b91c1c !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+}
+/* Pass: 青 */
+.btn-pass {
+  background: #eff6ff;
+  border: 2px solid #60a5fa;
+  color: #2563eb;
+}
+.btn-pass:hover {
+  background: #dbeafe;
+}
+.btn-pass.on {
+  background: #2563eb !important;
+  border-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+/* テーブル内の Run / Pass バッジ */
+.badge-run {
+  display: inline-block;
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+}
+.badge-pass {
+  display: inline-block;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+}
+
+/* ---------- プレー一覧 / 傾向分析 切り替えタブ ---------- */
+.pane-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0.4rem;
+}
+.pane-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 6px 6px 0 0;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 40px;
+}
+.pane-tab:hover {
+  color: var(--fg);
+  background: #f1f5f9;
+}
+.pane-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background: #e0f2fe;
+}
+
+/* ---------- 傾向分析ビュー ---------- */
+.tendency-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.tendency-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.tendency-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+.tendency-card-head h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.tendency-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.tendency-table th, .tendency-table td {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+.tendency-table th {
+  background: #f8fafc;
+  color: var(--fg);
+  font-weight: 700;
+}
+.tendency-table th.th-situation {
+  text-align: left;
+  min-width: 130px;
+}
+.tendency-table td.td-situation {
+  text-align: left;
+  font-weight: 700;
+  background: #fafafa;
+}
+.tendency-table tr.total-row {
+  background: #f1f5f9;
+  font-weight: 800;
+}
+.tendency-table tr.total-row td {
+  border-top: 2px solid #cbd5e1;
+}
+.tendency-table .val-run {
+  color: #dc2626;
+  font-weight: 700;
+}
+.tendency-table .val-pass {
+  color: #2563eb;
+  font-weight: 700;
+}
+.tendency-bar-cell {
+  min-width: 120px;
+  width: 140px;
+}
+.tendency-bar {
+  display: flex;
+  height: 18px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+.tendency-bar-run {
+  background: #ef4444;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+.tendency-bar-pass {
+  background: #3b82f6;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+.tendency-clickable {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.tendency-clickable:hover td {
+  background: #f0fdf4 !important;
+}

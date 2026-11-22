@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Football Data Live</title>
-  <link rel="stylesheet" href="style.css?v=25">
+  <link rel="stylesheet" href="style.css?v=26">
 </head>
 <body>
   <header class="topbar">
@@ -61,25 +61,77 @@
         <div class="hudl-filter-list" id="hudlFilterList"></div>
         <button type="button" id="clearFilterBtn" class="hudl-reset-btn">条件Clear</button>
       </div>
-      <div class="table-head">
-        <h2>プレー一覧 <span id="playCount" class="muted"></span></h2>
-        <div class="row">
-          <button id="shareBtn">共有リンク</button>
-          <button id="csvBtn">CSV書き出し</button>
+
+      <!-- プレー一覧 / 傾向分析 切り替えタブ -->
+      <div class="pane-tabs">
+        <button type="button" id="tabPlayList" class="pane-tab active">📋 プレー一覧</button>
+        <button type="button" id="tabTendency" class="pane-tab">📊 傾向分析 (Tendency)</button>
+      </div>
+
+      <div id="playListView">
+        <div class="table-head">
+          <h2>プレー一覧 <span id="playCount" class="muted"></span></h2>
+          <div class="row">
+            <button id="shareBtn">共有リンク</button>
+            <button id="csvBtn">CSV書き出し</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="playTable">
+            <thead>
+              <tr>
+                <th>#</th><th data-key="qtr">Q</th><th data-key="series">Series</th><th data-key="hash">Hash</th>
+                <th data-key="down">D&amp;D</th>
+                <th data-key="personnel">Pers</th><th data-key="formation">OFF Formation</th>
+                <th data-key="play">Play</th><th data-key="playType">Type</th><th>Play図</th><th data-key="defSign">Def Sign</th><th>更新</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
         </div>
       </div>
-      <div class="table-wrap">
-        <table id="playTable">
-          <thead>
-            <tr>
-              <th>#</th><th data-key="qtr">Q</th><th data-key="series">Series</th><th data-key="hash">Hash</th>
-              <th data-key="down">D&amp;D</th>
-              <th data-key="personnel">Pers</th><th data-key="formation">OFF Formation</th>
-              <th data-key="play">Play</th><th>Play図</th><th data-key="defSign">Def Sign</th><th>更新</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+
+      <!-- 傾向分析画面 -->
+      <div id="tendencyView" class="tendency-view hidden">
+        <div class="tendency-card">
+          <div class="tendency-card-head">
+            <h3>🏃‍♂️ ラン・パス比率（Down &amp; Distance別）</h3>
+            <span class="muted" style="font-size: 0.82rem;">※行をタップすると対象プレーを絞り込み</span>
+          </div>
+          <div class="table-wrap">
+            <table class="tendency-table" id="runPassTable">
+              <thead>
+                <tr>
+                  <th class="th-situation">状況 (D&amp;D)</th>
+                  <th>Total</th>
+                  <th>Run</th>
+                  <th>Run %</th>
+                  <th>Pass</th>
+                  <th>Pass %</th>
+                  <th class="tendency-bar-cell">比率</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tendency-card">
+          <div class="tendency-card-head">
+            <h3>👥 パーソナル比率（Down &amp; Distance別）</h3>
+          </div>
+          <div class="table-wrap">
+            <table class="tendency-table" id="personnelTable">
+              <thead>
+                <tr id="personnelTableHeadRow">
+                  <th class="th-situation">状況 (D&amp;D)</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -190,8 +242,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <!-- MQTT.js (Fallback) -->
   <script src="https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js"></script>
-  <script src="config.js?v=25"></script>
-  <script src="store.js?v=25"></script>
-  <script src="app.js?v=25"></script>
+  <script src="config.js?v=26"></script>
+  <script src="store.js?v=26"></script>
+  <script src="app.js?v=26"></script>
 </body>
 </html>

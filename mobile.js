@@ -31,6 +31,7 @@
     { key: 'personnel', label: 'Personnel' },
     { key: 'formation', label: 'Formation' },
     { key: 'play', label: 'Play' },
+    { key: 'playType', label: 'Type' },
     { key: 'defSign', label: 'Def Sign' },
   ];
 
@@ -50,6 +51,7 @@
     personnel: new Set(),
     formation: new Set(),
     play: new Set(),
+    playType: new Set(),
     defSign: new Set(),
   };
 
@@ -219,6 +221,15 @@
 
       // 8. Play
       tr.appendChild(el('td', 'col-bold', p.play || ''));
+
+      // 8.5 Type (Run / Pass)
+      const tdType = el('td');
+      if (p.playType === 'Run') {
+        tdType.appendChild(el('span', 'badge-run', 'Run'));
+      } else if (p.playType === 'Pass') {
+        tdType.appendChild(el('span', 'badge-pass', 'Pass'));
+      }
+      tr.appendChild(tdType);
 
       // 9. Play図ボタン
       const tdDraw = el('td');

@@ -61,19 +61,20 @@
     { key: 'formation', label: 'OFF Formation', type: 'text', capitalize: true, presets: FORMATION_PRESETS, presetsOnly: true },
     // upperWords: どう打っても全部大文字にする単語
     { key: 'play', label: 'Play', type: 'text', capitalize: true, upperWords: ['RPO', 'PAP'] },
+    { key: 'playType', label: 'Run / Pass', type: 'runpass' },
     { key: 'defSign', label: 'Def Sign', type: 'text', capitalize: true },
   ];
   const CSV_COLS = [
     ['qtr', 'Quarter'], ['series', 'Series'], ['hash', 'Hash'],
     ['down', 'Down'], ['dist', 'Distance'], ['personnel', 'Personnel'],
-    ['formation', 'OFF Formation'], ['play', 'Play'], ['defSign', 'Def Sign'],
+    ['formation', 'OFF Formation'], ['play', 'Play'], ['playType', 'Type'], ['defSign', 'Def Sign'],
   ];
 
   // ---------- 担当（役割）の定義 ----------
   // canAdd: 「＋ 次のプレー」で行を追加できる担当（同時に押して行が重複するのを防ぐ）
   const ROLES = {
     situation: { label: '状況', keys: ['qtr', 'series', 'hash', 'down', 'dist'], canAdd: true },
-    offense: { label: 'オフェンス', keys: ['personnel', 'formation', 'play'], canAdd: false },
+    offense: { label: 'オフェンス', keys: ['personnel', 'formation', 'play', 'playType'], canAdd: false },
     defense: { label: 'Def Sign', keys: ['defSign'], canAdd: false },
     all: { label: '全項目', keys: null, canAdd: true },
   };
@@ -123,11 +124,40 @@
     return out;
   };
 
+  // プレー名からのRun/Pass先行判定（手動変更・誤認識防止用の下書きアシスト）
+  function guessPlayType(name) {
+    if (!name) return '';
+    const upper = name.toUpperCase().trim();
+    if (upper.includes('RPO')) return ''; // RPOは手動選択を尊重
+    // PASS系キーワード
+    const passKws = ['STEP', 'PAP', 'BOOTS', 'BOOT', 'NAKED', 'SCREEN', 'BUBBLE', 'SIDE', 'DASH', 'ROLL', 'SPRINT', 'HAIL MARY', 'PASS'];
+    if (passKws.some((k) => upper.includes(k))) return 'Pass';
+    // RUN系キーワード
+    const runKws = ['ZONE', 'IZ', 'MZ', 'OZ', 'POWER', 'COUNTER', 'TRAP', 'DUO', 'DIVE', 'WEDGE', 'TOSS', 'SWEEP', 'DRAW', 'OPTION', 'SNEAK', 'LOG', 'DART'];
+    if (runKws.some((k) => upper.includes(k))) return 'Run';
+    return '';
+  }
+
   function save(key, value, pid = selectedId) {
     if (value === null) return; // 入力値が不正
     if (!currentGameId || !pid) { toast('編集する行を選択してください'); return; }
     const p = plays.find((x) => x.id === pid);
     if (p && (p[key] ?? '') === value) return;
+
+    // Play名が入力された時、まだRun/Passが未選択なら自動判定して先行セット
+    if (key === 'play' && value) {
+      if (!p?.playType) {
+        const guessed = guessPlayType(value);
+        if (guessed) {
+          store.updatePlay(currentGameId, pid, {
+            [key]: value, playType: guessed, updatedBy: me, updatedByClient: clientId, updatedAt: Date.now(),
+          });
+          controls['playType']?.set(guessed);
+          return;
+        }
+      }
+    }
+
     store.updatePlay(currentGameId, pid, {
       [key]: value, updatedBy: me, updatedByClient: clientId, updatedAt: Date.now(),
     });
@@ -259,6 +289,41 @@
           save(f.key, cur === v ? '' : v); // 同じボタンをもう一度押すと解除
         });
         return { set: (v) => setOn(v ?? '') };
+      }
+      case 'runpass': {
+        const box = el('div', 'runpass-box');
+        const runBtn = el('button', 'runpass-btn btn-run', 'Run');
+        runBtn.type = 'button';
+        const passBtn = el('button', 'runpass-btn btn-pass', 'Pass');
+        passBtn.type = 'button';
+
+        const updateActive = (val) => {
+          runBtn.classList.toggle('on', val === 'Run');
+          passBtn.classList.toggle('on', val === 'Pass');
+        };
+
+        runBtn.onclick = () => {
+          const cur = selectedPlay()?.[f.key] ?? '';
+          const next = cur === 'Run' ? '' : 'Run';
+          updateActive(next);
+          save(f.key, next);
+        };
+
+        passBtn.onclick = () => {
+          const cur = selectedPlay()?.[f.key] ?? '';
+          const next = cur === 'Pass' ? '' : 'Pass';
+          updateActive(next);
+          save(f.key, next);
+        };
+
+        box.appendChild(runBtn);
+        box.appendChild(passBtn);
+        body.appendChild(box);
+
+        return {
+          set: (v) => updateActive(v ?? ''),
+          focus: () => runBtn.focus(),
+        };
       }
       case 'allowed': {
         // 決められた値だけ手打ちで受け付ける（小文字は大文字に変換）
@@ -585,6 +650,7 @@
     { key: 'personnel', label: 'PERSONNEL' },
     { key: 'formation', label: '体型 (FORMATION)' },
     { key: 'play', label: 'PLAY名' },
+    { key: 'playType', label: 'TYPE (Run/Pass)' },
     { key: 'down', label: 'DOWN', format: (v) => ORD[v] || v },
     { key: 'dist', label: 'DISTANCE' },
     { key: 'hash', label: 'HASH' },
@@ -594,6 +660,7 @@
     personnel: new Set(),
     formation: new Set(),
     play: new Set(),
+    playType: new Set(),
     down: new Set(),
     dist: new Set(),
     hash: new Set(),
@@ -756,6 +823,16 @@
         tr.appendChild(td);
       });
 
+      // Type セル (Run / Pass)
+      const typeTd = el('td', 'play-type-cell');
+      if (p.playType === 'Run') {
+        typeTd.appendChild(el('span', 'badge-run', 'Run'));
+      } else if (p.playType === 'Pass') {
+        typeTd.appendChild(el('span', 'badge-pass', 'Pass'));
+      }
+      if (role !== 'all' && roleHas('playType')) typeTd.className = 'mine';
+      tr.appendChild(typeTd);
+
       // Play図セル
       const drawTd = el('td', 'play-draw-cell');
       if (p.drawing) {
@@ -811,12 +888,214 @@
     }
   }
 
+  // ---------- 傾向分析 (Tendency Analysis) ----------
+  let activeTab = 'playList';
+
+  function switchTab(tab) {
+    activeTab = tab;
+    $('#tabPlayList')?.classList.toggle('active', tab === 'playList');
+    $('#tabTendency')?.classList.toggle('active', tab === 'tendency');
+    $('#playListView')?.classList.toggle('hidden', tab !== 'playList');
+    $('#tendencyView')?.classList.toggle('hidden', tab !== 'tendency');
+    if (tab === 'tendency') {
+      renderTendency();
+    }
+  }
+
+  function getSituationGroup(p) {
+    const d = parseInt(p.down, 10);
+    const dst = parseInt(p.dist, 10);
+    if (isNaN(d) || d < 1 || d > 4) return null;
+    if (d === 1) {
+      if (dst === 10) return '1st & 10';
+      return '1st & Other';
+    }
+    if (d === 2) {
+      if (isNaN(dst)) return '2nd Down';
+      if (dst <= 3) return '2nd & Short (1-3)';
+      if (dst <= 6) return '2nd & Medium (4-6)';
+      return '2nd & Long (7+)';
+    }
+    if (d === 3) {
+      if (isNaN(dst)) return '3rd Down';
+      if (dst <= 3) return '3rd & Short (1-3)';
+      if (dst <= 6) return '3rd & Medium (4-6)';
+      return '3rd & Long (7+)';
+    }
+    if (d === 4) return '4th Down';
+    return null;
+  }
+
+  const SITUATIONS = [
+    '1st & 10',
+    '1st & Other',
+    '2nd & Short (1-3)',
+    '2nd & Medium (4-6)',
+    '2nd & Long (7+)',
+    '3rd & Short (1-3)',
+    '3rd & Medium (4-6)',
+    '3rd & Long (7+)',
+    '4th Down',
+  ];
+
+  function filterBySituation(sit) {
+    switchTab('playList');
+    if (!isViewOnly) return;
+    let targetDown = '';
+    if (sit.startsWith('1st')) targetDown = '1';
+    else if (sit.startsWith('2nd')) targetDown = '2';
+    else if (sit.startsWith('3rd')) targetDown = '3';
+    else if (sit.startsWith('4th')) targetDown = '4';
+
+    if (targetDown) {
+      activeFilters.down.clear();
+      activeFilters.down.add(targetDown);
+      refreshHudlFilters();
+      renderTable();
+    }
+  }
+
+  function renderTendency() {
+    const runPassTbody = $('#runPassTable tbody');
+    const persTbody = $('#personnelTable tbody');
+    const persHeadRow = $('#personnelTableHeadRow');
+    if (!runPassTbody || !persTbody || !persHeadRow) return;
+
+    // 有効なプレー
+    const validPlays = plays.filter((p) => p.down || p.play || p.personnel || p.playType);
+
+    const sitStats = {};
+    SITUATIONS.forEach((s) => {
+      sitStats[s] = { total: 0, run: 0, pass: 0, pers: {} };
+    });
+    const totalStat = { total: 0, run: 0, pass: 0, pers: {} };
+    const allPersSet = new Set();
+
+    validPlays.forEach((p) => {
+      const sit = getSituationGroup(p);
+      const isRun = p.playType === 'Run';
+      const isPass = p.playType === 'Pass';
+      const pers = (p.personnel || '').trim();
+
+      if (pers) allPersSet.add(pers);
+
+      if (sit && sitStats[sit]) {
+        sitStats[sit].total++;
+        if (isRun) sitStats[sit].run++;
+        if (isPass) sitStats[sit].pass++;
+        if (pers) sitStats[sit].pers[pers] = (sitStats[sit].pers[pers] || 0) + 1;
+      }
+      totalStat.total++;
+      if (isRun) totalStat.run++;
+      if (isPass) totalStat.pass++;
+      if (pers) totalStat.pers[pers] = (totalStat.pers[pers] || 0) + 1;
+    });
+
+    // 表1: ラン・パス比率表
+    runPassTbody.innerHTML = '';
+    const renderRunPassRow = (label, stat, isTotal = false) => {
+      const tr = el('tr', isTotal ? 'total-row' : 'tendency-clickable');
+      tr.appendChild(el('td', 'td-situation', label));
+      tr.appendChild(el('td', '', String(stat.total)));
+
+      const runPct = stat.total > 0 ? Math.round((stat.run / stat.total) * 100) : 0;
+      const passPct = stat.total > 0 ? Math.round((stat.pass / stat.total) * 100) : 0;
+
+      const tdRun = el('td', 'val-run', String(stat.run));
+      const tdRunPct = el('td', 'val-run', stat.total > 0 ? `${runPct}%` : '—');
+      const tdPass = el('td', 'val-pass', String(stat.pass));
+      const tdPassPct = el('td', 'val-pass', stat.total > 0 ? `${passPct}%` : '—');
+
+      if (runPct >= 65 && stat.total >= 3) {
+        tdRunPct.style.background = '#fee2e2';
+        tdRunPct.style.fontWeight = '800';
+      }
+      if (passPct >= 65 && stat.total >= 3) {
+        tdPassPct.style.background = '#dbeafe';
+        tdPassPct.style.fontWeight = '800';
+      }
+
+      tr.append(tdRun, tdRunPct, tdPass, tdPassPct);
+
+      // 比率バー
+      const tdBar = el('td', 'tendency-bar-cell');
+      if (stat.total > 0 && (stat.run > 0 || stat.pass > 0)) {
+        const barWrap = el('div', 'tendency-bar');
+        const runPart = el('div', 'tendency-bar-run');
+        runPart.style.width = `${runPct}%`;
+        const passPart = el('div', 'tendency-bar-pass');
+        passPart.style.width = `${passPct}%`;
+        barWrap.append(runPart, passPart);
+        tdBar.appendChild(barWrap);
+      } else {
+        tdBar.textContent = '—';
+      }
+      tr.appendChild(tdBar);
+
+      if (!isTotal) {
+        tr.onclick = () => filterBySituation(label);
+        tr.title = `${label} のプレーを絞り込み表示`;
+      }
+      runPassTbody.appendChild(tr);
+    };
+
+    SITUATIONS.forEach((s) => renderRunPassRow(s, sitStats[s]));
+    renderRunPassRow('全プレー合計', totalStat, true);
+
+    // 表2: パーソナル比率表
+    const sortedPers = Array.from(allPersSet).sort((a, b) => {
+      const order = ['11', '10', '12', '12+OL', '21', '22', '13'];
+      const ia = order.indexOf(a);
+      const ib = order.indexOf(b);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    persHeadRow.innerHTML = '<th class="th-situation">状況 (D&amp;D)</th><th>Total</th>';
+    sortedPers.forEach((pers) => {
+      persHeadRow.appendChild(el('th', '', pers));
+    });
+    if (sortedPers.length === 0) {
+      persHeadRow.appendChild(el('th', '', 'Personnel未入力'));
+    }
+
+    persTbody.innerHTML = '';
+    const renderPersRow = (label, stat, isTotal = false) => {
+      const tr = el('tr', isTotal ? 'total-row' : '');
+      tr.appendChild(el('td', 'td-situation', label));
+      tr.appendChild(el('td', '', String(stat.total)));
+
+      if (sortedPers.length === 0) {
+        tr.appendChild(el('td', '', '—'));
+      } else {
+        sortedPers.forEach((pers) => {
+          const cnt = stat.pers[pers] || 0;
+          const pct = stat.total > 0 ? Math.round((cnt / stat.total) * 100) : 0;
+          const td = el('td', '', cnt > 0 ? `${cnt} (${pct}%)` : '—');
+          if (cnt > 0) {
+            td.style.fontWeight = '700';
+            if (pct >= 50 && stat.total >= 3) {
+              td.style.background = '#fef3c7';
+            }
+          }
+          tr.appendChild(td);
+        });
+      }
+      persTbody.appendChild(tr);
+    };
+
+    SITUATIONS.forEach((s) => renderPersRow(s, sitStats[s]));
+    renderPersRow('全プレー合計', totalStat, true);
+  }
+
   function onPlays(list) {
     list.sort((a, b) => (a.seq || 0) - (b.seq || 0) || (a.createdAt || 0) - (b.createdAt || 0) || a.id.localeCompare(b.id));
 
     // 100枠制限：100枠で十分なため、101枠目以降の無駄な空行は非表示にしてスッキリ100枠に収める
     if (list.length > 100) {
-      const hasData = (p) => p.qtr || p.series || p.hash || p.down || p.dist || p.personnel || p.formation || p.play || p.defSign || p.drawing || p.drawingLayer;
+      const hasData = (p) => p.qtr || p.series || p.hash || p.down || p.dist || p.personnel || p.formation || p.play || p.playType || p.defSign || p.drawing || p.drawingLayer;
       list = list.filter((p, idx) => idx < 100 || hasData(p));
     }
     plays = list;
@@ -835,6 +1114,9 @@
 
     renderTable();
     syncEditor();
+    if (activeTab === 'tendency') {
+      renderTendency();
+    }
     plays.forEach((p) => { prevUpdated[p.id] = p.updatedAt; });
 
     if (isViewOnly) {
@@ -1395,13 +1677,15 @@
       if (confirm(`#${idx} のプレー内容をクリアしますか？`)) {
         store.updatePlay(currentGameId, p.id, {
           qtr: '', series: '', hash: '', down: '', dist: '',
-          personnel: '', formation: '', play: '', defSign: '', drawing: null,
+          personnel: '', formation: '', play: '', playType: '', defSign: '', drawing: null, drawingLayer: null,
           updatedAt: Date.now(), updatedBy: me, updatedByClient: clientId,
         });
         toast(`#${idx} の内容をクリアしました`);
       }
     };
     $('#csvBtn').onclick = exportCsv;
+    $('#tabPlayList')?.addEventListener('click', () => switchTab('playList'));
+    $('#tabTendency')?.addEventListener('click', () => switchTab('tendency'));
     let shareMode = 'edit';
     function updateShareDialog() {
       const base = location.href.split('#')[0];

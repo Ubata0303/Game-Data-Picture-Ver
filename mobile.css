@@ -514,3 +514,44 @@ tbody tr.selected { background: var(--primary-weak); }
   font-size: 0.85rem;
 }
 .toast.show { opacity: 1; transform: translateX(-50%); }
+
+/* テーブル内の Run / Pass バッジ */
+.badge-run {
+  display: inline-block;
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  font-weight: 700;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+}
+.badge-pass {
+  display: inline-block;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+  font-weight: 700;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+}
+
+/* 傾向ボタンスタイル */
+.tendency-btn {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.tendency-btn:active {
+  background: #bae6fd;
+}
+
