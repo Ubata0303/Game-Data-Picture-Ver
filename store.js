@@ -673,13 +673,44 @@
       this.activeGid = null;
     }
 
+    async getGame(gid) {
+      if (!gid) return null;
+      try {
+        const doc = await this.db.collection('games').doc(gid).get();
+        return doc.exists ? { id: doc.id, ...doc.data() } : null;
+      } catch {
+        return null;
+      }
+    }
+
     subscribeGames(cb) {
-      return this.db.collection('games').orderBy('createdAt', 'desc')
+      return this.db.collection('games')
         .onSnapshot((snapshot) => {
-          const list = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          let list = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          // Firestoreにまだ試合がなくLocalStorageに過去データがある場合は自動復元
+          if (list.length === 0) {
+            try {
+              const local = JSON.parse(localStorage.getItem('fdl_data_v2') || '{}');
+              const localGames = Object.entries(local.games || {}).map(([id, g]) => ({ id, ...g }));
+              if (localGames.length > 0) {
+                console.log('[Firebase] LocalStorageから試合データを自動復元中...');
+                localGames.forEach((g) => {
+                  this.db.collection('games').doc(g.id).set(g).catch(() => {});
+                });
+                list = localGames;
+              }
+            } catch (e) {}
+          }
+          list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
           cb(list);
         }, (err) => {
           console.error('試合一覧取得エラー:', err);
+          try {
+            const local = JSON.parse(localStorage.getItem('fdl_data_v2') || '{}');
+            const localGames = Object.entries(local.games || {}).map(([id, g]) => ({ id, ...g }));
+            localGames.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            cb(localGames);
+          } catch {}
           this._setStatus('通信エラー', 'warn');
         });
     }
