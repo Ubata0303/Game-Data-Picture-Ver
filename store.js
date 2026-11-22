@@ -612,7 +612,189 @@
     }
   }
 
+  // ---------- Google Cloud Firestore モード（超高安定・専用クラウド） ----------
+  class FirebaseStore {
+    constructor(cfg) {
+      this.mode = 'firebase';
+      this.statusListeners = new Set();
+      this.status = { text: '接続中...', cls: 'warn' };
+      this.activeGid = null;
+
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(cfg);
+        }
+        this.db = firebase.firestore();
+
+        // オフライン自動永続化（電波が切れても手元の端末に安全保持し、復帰時にGoogleが自動送信）
+        this.db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
+          if (err.code === 'failed-precondition') {
+            console.warn('Firestore: 複数タブオープンによる永続化の制限');
+          } else if (err.code === 'unimplemented') {
+            console.warn('Firestore: ブラウザが永続化非対応');
+          }
+        });
+
+        this._setStatus('● リアルタイム同期中 (Firebase)', 'ok');
+
+        window.addEventListener('online', () => {
+          this._setStatus('● リアルタイム同期中 (Firebase)', 'ok');
+        });
+        window.addEventListener('offline', () => {
+          this._setStatus('オフライン（手元に自動保存中）', 'warn');
+        });
+      } catch (e) {
+        console.error('Firebase初期化エラー:', e);
+        this._setStatus('Firebase接続エラー', 'warn');
+      }
+    }
+
+    _setStatus(text, cls = 'ok') {
+      this.status = { text, cls };
+      const el = document.getElementById('status');
+      if (el) {
+        el.textContent = text;
+        el.className = 'status ' + (cls === 'ok' ? 'connected' : cls === 'warn' ? 'connecting' : 'disconnected');
+      }
+      this.statusListeners.forEach((fn) => fn(this.status));
+    }
+
+    onStatusChange(fn) {
+      this.statusListeners.add(fn);
+      fn(this.status);
+      return () => this.statusListeners.delete(fn);
+    }
+
+    joinRoom(gid) {
+      this.activeGid = gid;
+    }
+
+    leaveGame() {
+      this.activeGid = null;
+    }
+
+    subscribeGames(cb) {
+      return this.db.collection('games').orderBy('createdAt', 'desc')
+        .onSnapshot((snapshot) => {
+          const list = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          cb(list);
+        }, (err) => {
+          console.error('試合一覧取得エラー:', err);
+          this._setStatus('通信エラー', 'warn');
+        });
+    }
+
+    createGame(data) {
+      const gRef = this.db.collection('games').doc();
+      const gid = gRef.id;
+      const baseTime = Date.now();
+
+      // ゲームデータ本体
+      const batch = this.db.batch();
+      batch.set(gRef, { ...data, createdAt: baseTime, updatedAt: baseTime });
+
+      // 初期100枠を同時に一括生成（100枠固定）
+      for (let i = 1; i <= 100; i++) {
+        const pRef = gRef.collection('plays').doc();
+        batch.set(pRef, {
+          seq: i,
+          createdAt: baseTime + i * 10,
+          updatedAt: baseTime + i * 10
+        });
+      }
+
+      batch.commit().catch((e) => console.error('試合一括作成エラー:', e));
+      return gid;
+    }
+
+    updateGame(gid, patch) {
+      if (!gid) return;
+      this.db.collection('games').doc(gid).update({
+        ...patch,
+        updatedAt: Date.now()
+      }).catch((e) => console.error('試合更新エラー:', e));
+    }
+
+    deleteGame(gid) {
+      if (!gid) return;
+      this.db.collection('games').doc(gid).delete().catch((e) => console.error('試合削除エラー:', e));
+    }
+
+    subscribePlays(gid, cb) {
+      this.activeGid = gid;
+      return this.db.collection('games').doc(gid).collection('plays').orderBy('seq', 'asc')
+        .onSnapshot({ includeMetadataChanges: true }, (snapshot) => {
+          const list = snapshot.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              _pending: doc.metadata.hasPendingWrites // 未送信（オフライン）状態の自動判定
+            };
+          });
+          cb(list);
+        }, (err) => {
+          console.error('プレー一覧取得エラー:', err);
+        });
+    }
+
+    ensureInitialPlays(gid, count = 100) {
+      if (!gid) return;
+      const playsRef = this.db.collection('games').doc(gid).collection('plays');
+      playsRef.get().then((snapshot) => {
+        const currentCount = snapshot.size;
+        if (currentCount >= count) return;
+        const batch = this.db.batch();
+        const baseTime = Date.now();
+        for (let i = currentCount + 1; i <= count; i++) {
+          const pRef = playsRef.doc();
+          batch.set(pRef, {
+            seq: i,
+            createdAt: baseTime + i * 10,
+            updatedAt: baseTime + i * 10
+          });
+        }
+        return batch.commit();
+      }).catch((e) => console.error('初期枠確保エラー:', e));
+    }
+
+    addPlay(gid, data) {
+      if (!gid) return;
+      const ref = this.db.collection('games').doc(gid).collection('plays').doc();
+      ref.set({
+        ...data,
+        createdAt: data.createdAt || Date.now(),
+        updatedAt: Date.now()
+      }).catch((e) => console.error('Play追加エラー:', e));
+      return ref.id;
+    }
+
+    updatePlay(gid, pid, patch) {
+      if (!gid || !pid) return;
+      // フィールド単位の部分更新（オフェンス担当・状況担当の同時入力が一切競合しない！）
+      this.db.collection('games').doc(gid).collection('plays').doc(pid).update({
+        ...patch,
+        updatedAt: patch.updatedAt || Date.now()
+      }).catch((e) => {
+        console.warn('Play更新エラー（オフライン時は復帰時に自動再送）:', e);
+      });
+    }
+
+    deletePlay(gid, pid) {
+      if (!gid || !pid) return;
+      this.db.collection('games').doc(gid).collection('plays').doc(pid).delete().catch((e) => {
+        console.error('Play削除エラー:', e);
+      });
+    }
+  }
+
   window.createStore = async function () {
+    const cfg = window.FIREBASE_CONFIG;
+    if (cfg && cfg.apiKey && cfg.projectId) {
+      console.log('Google Cloud Firestore モードで起動中...');
+      return new FirebaseStore(cfg);
+    }
+    console.log('MQTT リアルタイム同期モードで起動中...');
     try {
       await loadScript('https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js');
     } catch {
