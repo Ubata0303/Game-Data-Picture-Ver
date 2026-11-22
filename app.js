@@ -943,10 +943,7 @@
     const d = parseInt(p.down, 10);
     const dst = parseInt(p.dist, 10);
     if (isNaN(d) || d < 1 || d > 4) return null;
-    if (d === 1) {
-      if (dst === 10) return '1st & 10';
-      return '1st & Other';
-    }
+    if (d === 1) return '1st Down';
     if (d === 2) {
       if (isNaN(dst)) return '2nd Down';
       if (dst <= 3) return '2nd & Short (1-3)';
@@ -964,8 +961,7 @@
   }
 
   const SITUATIONS = [
-    '1st & 10',
-    '1st & Other',
+    '1st Down',
     '2nd & Short (1-3)',
     '2nd & Medium (4-6)',
     '2nd & Long (7+)',
