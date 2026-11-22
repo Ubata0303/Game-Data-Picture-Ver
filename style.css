@@ -198,10 +198,11 @@ td.mine { background: rgba(11, 92, 213, .05); font-weight: 600; }
 }
 
 /* ---------- テーブル ---------- */
-.table-pane { display: flex; flex-direction: column; min-height: 0; }
+.table-pane { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+#playListView { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
 .table-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
 .table-head h2 { margin: 0; }
-.table-wrap { overflow: auto; flex: 1; border: 1px solid var(--line); border-radius: 8px; }
+.table-wrap { overflow: auto; flex: 1; min-height: 0; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 table { border-collapse: collapse; width: 100%; font-size: .92rem; }
 th, td { padding: .5rem .55rem; border-bottom: 1px solid #eef1f5; text-align: left; white-space: nowrap; }
 th { position: sticky; top: 0; background: #f7f9fc; font-size: .8rem; color: var(--muted); z-index: 1; }
@@ -223,7 +224,8 @@ dialog input { margin: .6rem 0; }
 
 /* ---------- 閲覧専用モード ---------- */
 body.view-only #editorPane { display: none !important; }
-body.view-only #game { grid-template-columns: 1fr; }
+body.view-only #game { grid-template-columns: 1fr; height: calc(100vh - 65px); }
+body.view-only .table-wrap { max-height: none !important; flex: 1; }
 body.view-only tbody tr { cursor: default; }
 body.view-only #userBtn { display: none; }
 body.view-only th.mine, body.view-only td.mine { background: transparent !important; color: inherit !important; font-weight: normal !important; }
@@ -488,6 +490,9 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 .tendency-card {
   background: #ffffff;
