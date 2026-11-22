@@ -1043,11 +1043,11 @@
       const tdPass = el('td', 'val-pass', String(stat.pass));
       const tdPassPct = el('td', 'val-pass', stat.total > 0 ? `${passPct}%` : '—');
 
-      if (runPct >= 65 && stat.total >= 3) {
+      if (runPct >= 70 && stat.total >= 3) {
         tdRunPct.style.background = '#fee2e2';
         tdRunPct.style.fontWeight = '800';
       }
-      if (passPct >= 65 && stat.total >= 3) {
+      if (passPct >= 70 && stat.total >= 3) {
         tdPassPct.style.background = '#dbeafe';
         tdPassPct.style.fontWeight = '800';
       }
@@ -1113,7 +1113,7 @@
           const td = el('td', '', cnt > 0 ? `${cnt} (${pct}%)` : '—');
           if (cnt > 0) {
             td.style.fontWeight = '700';
-            if (pct >= 50 && stat.total >= 3) {
+            if (pct >= 70 && stat.total >= 3) {
               td.style.background = '#fef3c7';
             }
           }
