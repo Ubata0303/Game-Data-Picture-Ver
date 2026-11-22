@@ -1031,7 +1031,7 @@
     // 表1: ラン・パス比率表
     runPassTbody.innerHTML = '';
     const renderRunPassRow = (label, stat, isTotal = false) => {
-      const tr = el('tr', isTotal ? 'total-row' : 'tendency-clickable');
+      const tr = el('tr', isTotal ? 'total-row' : '');
       tr.appendChild(el('td', 'td-situation', label));
       tr.appendChild(el('td', '', String(stat.total)));
 
@@ -1043,11 +1043,11 @@
       const tdPass = el('td', 'val-pass', String(stat.pass));
       const tdPassPct = el('td', 'val-pass', stat.total > 0 ? `${passPct}%` : '—');
 
-      if (runPct >= 70 && stat.total >= 3) {
+      if (runPct >= 70 && stat.total >= 2) {
         tdRunPct.style.background = '#fee2e2';
         tdRunPct.style.fontWeight = '800';
       }
-      if (passPct >= 70 && stat.total >= 3) {
+      if (passPct >= 70 && stat.total >= 2) {
         tdPassPct.style.background = '#dbeafe';
         tdPassPct.style.fontWeight = '800';
       }
@@ -1069,10 +1069,6 @@
       }
       tr.appendChild(tdBar);
 
-      if (!isTotal) {
-        tr.onclick = () => filterBySituation(label);
-        tr.title = `${label} のプレーを絞り込み表示`;
-      }
       runPassTbody.appendChild(tr);
     };
 
@@ -1113,7 +1109,7 @@
           const td = el('td', '', cnt > 0 ? `${cnt} (${pct}%)` : '—');
           if (cnt > 0) {
             td.style.fontWeight = '700';
-            if (pct >= 70 && stat.total >= 3) {
+            if (pct >= 70 && stat.total >= 2) {
               td.style.background = '#fef3c7';
             }
           }
