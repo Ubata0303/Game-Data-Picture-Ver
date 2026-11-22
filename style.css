@@ -540,6 +540,10 @@ body.view-only .draw-btn-empty { display: inline-flex; }
 .tendency-table tr.total-row td {
   border-top: 2px solid #cbd5e1;
 }
+/* 各Downグループの区切り太枠 */
+.tendency-table tr.down-group-end td {
+  border-bottom: 2.5px solid #64748b;
+}
 .tendency-table .val-run {
   color: #dc2626;
   font-weight: 700;

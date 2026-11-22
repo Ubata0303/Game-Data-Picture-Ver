@@ -1027,7 +1027,8 @@
     // 表1: ラン・パス比率表
     runPassTbody.innerHTML = '';
     const renderRunPassRow = (label, stat, isTotal = false) => {
-      const tr = el('tr', isTotal ? 'total-row' : '');
+      const isDownEnd = ['1st Down', '2nd & Long (7+)', '3rd & Long (7+)', '4th Down'].includes(label);
+      const tr = el('tr', (isTotal ? 'total-row ' : '') + (isDownEnd ? 'down-group-end' : ''));
       tr.appendChild(el('td', 'td-situation', label));
       tr.appendChild(el('td', '', String(stat.total)));
 
@@ -1092,7 +1093,8 @@
 
     persTbody.innerHTML = '';
     const renderPersRow = (label, stat, isTotal = false) => {
-      const tr = el('tr', isTotal ? 'total-row' : '');
+      const isDownEnd = ['1st Down', '2nd & Long (7+)', '3rd & Long (7+)', '4th Down'].includes(label);
+      const tr = el('tr', (isTotal ? 'total-row ' : '') + (isDownEnd ? 'down-group-end' : ''));
       tr.appendChild(el('td', 'td-situation', label));
       tr.appendChild(el('td', '', String(stat.total)));
 
