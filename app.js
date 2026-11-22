@@ -142,17 +142,44 @@
     if (value === null) return; // 入力値が不正
     if (!currentGameId || !pid) { toast('編集する行を選択してください'); return; }
     const p = plays.find((x) => x.id === pid);
-    if (p && (p[key] ?? '') === value) return;
+    if (p && (p[key] ?? '') === value && key !== 'play') return;
 
-    // Play名が入力された時、まだRun/Passが未選択なら自動判定して先行セット
-    if (key === 'play' && value) {
-      if (!p?.playType) {
+    // 手動でRun/Passボタンが押された場合（手動選択フラグを立てる）
+    if (key === 'playType') {
+      store.updatePlay(currentGameId, pid, {
+        playType: value,
+        playTypeManual: Boolean(value),
+        updatedBy: me,
+        updatedByClient: clientId,
+        updatedAt: Date.now(),
+      });
+      return;
+    }
+
+    // Play名が入力・変更された時：
+    // 手動ボタンで固定していない限り、入力途中の変化（"Iz" -> "Iz PAP"等）に合わせてリアルタイム再判定
+    if (key === 'play') {
+      if (!p?.playTypeManual) {
         const guessed = guessPlayType(value);
         if (guessed) {
           store.updatePlay(currentGameId, pid, {
-            [key]: value, playType: guessed, updatedBy: me, updatedByClient: clientId, updatedAt: Date.now(),
+            [key]: value,
+            playType: guessed,
+            updatedBy: me,
+            updatedByClient: clientId,
+            updatedAt: Date.now(),
           });
           controls['playType']?.set(guessed);
+          return;
+        } else if (!value) {
+          store.updatePlay(currentGameId, pid, {
+            [key]: value,
+            playType: '',
+            updatedBy: me,
+            updatedByClient: clientId,
+            updatedAt: Date.now(),
+          });
+          controls['playType']?.set('');
           return;
         }
       }
@@ -599,6 +626,12 @@
     } else {
       $('#editingLabel').textContent = 'プレー未選択';
       $('#situation').textContent = '—';
+    }
+    if (p && p.play && !p.playTypeManual) {
+      const guessed = guessPlayType(p.play);
+      if (guessed && p.playType !== guessed) {
+        save('play', p.play, p.id);
+      }
     }
     for (const f of FIELDS) {
       const c = controls[f.key];
@@ -1677,7 +1710,7 @@
       if (confirm(`#${idx} のプレー内容をクリアしますか？`)) {
         store.updatePlay(currentGameId, p.id, {
           qtr: '', series: '', hash: '', down: '', dist: '',
-          personnel: '', formation: '', play: '', playType: '', defSign: '', drawing: null, drawingLayer: null,
+          personnel: '', formation: '', play: '', playType: '', playTypeManual: false, defSign: '', drawing: null, drawingLayer: null,
           updatedAt: Date.now(), updatedBy: me, updatedByClient: clientId,
         });
         toast(`#${idx} の内容をクリアしました`);
