@@ -533,16 +533,37 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   font-weight: 700;
   background: #fafafa;
 }
+/* ---------- 各Downグループ & 合計の四方太枠 ---------- */
+.tendency-table tr.down-group-start td {
+  border-top: 2.5px solid #334155 !important;
+}
+.tendency-table tr.down-group-end td {
+  border-bottom: 2.5px solid #334155 !important;
+}
+.tendency-table tr.down-group-start td:first-child,
+.tendency-table tr.down-group-mid td:first-child,
+.tendency-table tr.down-group-end td:first-child {
+  border-left: 2.5px solid #334155 !important;
+}
+.tendency-table tr.down-group-start td:last-child,
+.tendency-table tr.down-group-mid td:last-child,
+.tendency-table tr.down-group-end td:last-child {
+  border-right: 2.5px solid #334155 !important;
+}
+
 .tendency-table tr.total-row {
   background: #f1f5f9;
   font-weight: 800;
 }
 .tendency-table tr.total-row td {
-  border-top: 2px solid #cbd5e1;
+  border-top: 2.5px solid #334155 !important;
+  border-bottom: 2.5px solid #334155 !important;
 }
-/* 各Downグループの区切り太枠 */
-.tendency-table tr.down-group-end td {
-  border-bottom: 2.5px solid #64748b;
+.tendency-table tr.total-row td:first-child {
+  border-left: 2.5px solid #334155 !important;
+}
+.tendency-table tr.total-row td:last-child {
+  border-right: 2.5px solid #334155 !important;
 }
 .tendency-table .val-run {
   color: #dc2626;

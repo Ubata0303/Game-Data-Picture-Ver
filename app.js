@@ -1027,8 +1027,16 @@
     // 表1: ラン・パス比率表
     runPassTbody.innerHTML = '';
     const renderRunPassRow = (label, stat, isTotal = false) => {
-      const isDownEnd = ['1st Down', '2nd & Long (7+)', '3rd & Long (7+)', '4th Down'].includes(label);
-      const tr = el('tr', (isTotal ? 'total-row ' : '') + (isDownEnd ? 'down-group-end' : ''));
+      const isStart = ['1st Down', '2nd & Short (1-3)', '3rd & Short (1-3)', '4th Down'].includes(label);
+      const isMid = ['2nd & Medium (4-6)', '3rd & Medium (4-6)'].includes(label);
+      const isEnd = ['1st Down', '2nd & Long (7+)', '3rd & Long (7+)', '4th Down'].includes(label);
+      const cls = [
+        isTotal ? 'total-row' : '',
+        isStart ? 'down-group-start' : '',
+        isMid ? 'down-group-mid' : '',
+        isEnd ? 'down-group-end' : '',
+      ].filter(Boolean).join(' ');
+      const tr = el('tr', cls);
       tr.appendChild(el('td', 'td-situation', label));
       tr.appendChild(el('td', '', String(stat.total)));
 
@@ -1093,8 +1101,16 @@
 
     persTbody.innerHTML = '';
     const renderPersRow = (label, stat, isTotal = false) => {
-      const isDownEnd = ['1st Down', '2nd & Long (7+)', '3rd & Long (7+)', '4th Down'].includes(label);
-      const tr = el('tr', (isTotal ? 'total-row ' : '') + (isDownEnd ? 'down-group-end' : ''));
+      const isStart = ['1st Down', '2nd & Short (1-3)', '3rd & Short (1-3)', '4th Down'].includes(label);
+      const isMid = ['2nd & Medium (4-6)', '3rd & Medium (4-6)'].includes(label);
+      const isEnd = ['1st Down', '2nd & Long (7+)', '3rd & Long (7+)', '4th Down'].includes(label);
+      const cls = [
+        isTotal ? 'total-row' : '',
+        isStart ? 'down-group-start' : '',
+        isMid ? 'down-group-mid' : '',
+        isEnd ? 'down-group-end' : '',
+      ].filter(Boolean).join(' ');
+      const tr = el('tr', cls);
       tr.appendChild(el('td', 'td-situation', label));
       tr.appendChild(el('td', '', String(stat.total)));
 
