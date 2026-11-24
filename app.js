@@ -207,7 +207,12 @@
     }
   }
 
+  let lastRowJumpTime = 0;
   function selectNextRow({ focusKey, scroll = true } = {}) {
+    const now = Date.now();
+    if (now - lastRowJumpTime < 200) return; // 連続押下や重複イベントによる行スキップを完全に防止
+    lastRowJumpTime = now;
+
     if (!plays.length) return;
     const curIdx = plays.findIndex((p) => p.id === selectedId);
     let nextIdx = curIdx + 1;
@@ -429,10 +434,20 @@
         down.addEventListener('input', () => {
           if (/^[1-4]$/.test(down.value.trim())) { dist.focus(); dist.select(); }
         });
+        down.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.isComposing) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            save(f.key, getDown(), selectedId);
+            dist.focus();
+            dist.select();
+          }
+        });
         dist.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' && !e.isComposing) {
-            save(f.key2, dist.value.trim().toUpperCase(), selectedId);
             e.preventDefault();
+            e.stopImmediatePropagation();
+            save(f.key2, dist.value.trim().toUpperCase(), selectedId);
             focusNextInputOrRow(f.key);
           }
         });
