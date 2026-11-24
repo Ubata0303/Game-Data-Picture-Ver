@@ -272,13 +272,33 @@
     }
   }
 
-  function makeButtons(container, options, onClick) {
+  function makeButtons(container, options, onClick, onEnter) {
     const box = el('div', 'btns');
     const btns = options.map((o) => {
       const b = el('button', 'opt', o.label ?? o);
       b.type = 'button';
       b.dataset.v = o.value ?? o;
       b.addEventListener('click', () => onClick(b.dataset.v));
+      b.addEventListener('keydown', (e) => {
+        if (e.isComposing) return;
+        const keyUpper = e.key.toUpperCase();
+        // L, M, R などのキーを直接押した時も選択して即座にDownへ移動
+        if (options.some((o) => (o.value ?? o).toUpperCase() === keyUpper)) {
+          e.preventDefault();
+          e.stopPropagation();
+          onClick(keyUpper);
+          if (onEnter) onEnter();
+          else controls['down']?.focus?.();
+          return;
+        }
+        // Enterキーを押した時にDownへ移動
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (onEnter) onEnter();
+          else controls['down']?.focus?.();
+        }
+      });
       box.appendChild(b);
       return b;
     });
@@ -324,8 +344,17 @@
         const setOn = makeButtons(body, f.options, (v) => {
           const cur = selectedPlay()?.[f.key] ?? '';
           save(f.key, cur === v ? '' : v); // 同じボタンをもう一度押すと解除
+        }, () => {
+          controls['down']?.focus?.();
         });
-        return { set: (v) => setOn(v ?? '') };
+        return {
+          set: (v) => setOn(v ?? ''),
+          focus: () => {
+            const cur = selectedPlay()?.[f.key] ?? '';
+            const btn = body.querySelector(`button[data-v="${cur}"]`) || body.querySelector('button');
+            btn?.focus();
+          }
+        };
       }
       case 'runpass': {
         const box = el('div', 'runpass-box');
