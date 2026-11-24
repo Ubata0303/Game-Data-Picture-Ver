@@ -231,7 +231,7 @@
   }
 
   // フォーカス時点のプレーIDを覚えておき、途中で選択が変わっても正しい行に保存する
-  function bindInput(input, key, getValue) {
+  function bindInput(input, key, getValue, { handleEnter = true } = {}) {
     let pid = null;
     let timer = null;
     input.addEventListener('focus', () => { pid = selectedId; });
@@ -243,14 +243,16 @@
       clearTimeout(timer);
       save(key, getValue(), pid || selectedId);
     });
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.isComposing) {
-        clearTimeout(timer);
-        save(key, getValue(), pid || selectedId);
-        e.preventDefault();
-        focusNextInputOrRow(key);
-      }
-    });
+    if (handleEnter) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.isComposing) {
+          clearTimeout(timer);
+          save(key, getValue(), pid || selectedId);
+          e.preventDefault();
+          focusNextInputOrRow(key);
+        }
+      });
+    }
   }
 
   // ---------- 入力パネル ----------
@@ -429,15 +431,14 @@
           toast('Down は 1〜4 で入力してください');
           return null;
         };
-        bindInput(down, f.key, getDown);
-        bindInput(dist, f.key2, () => dist.value.trim().toUpperCase());
+        bindInput(down, f.key, getDown, { handleEnter: false });
+        bindInput(dist, f.key2, () => dist.value.trim().toUpperCase(), { handleEnter: false });
         down.addEventListener('input', () => {
           if (/^[1-4]$/.test(down.value.trim())) { dist.focus(); dist.select(); }
         });
         down.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' && !e.isComposing) {
             e.preventDefault();
-            e.stopImmediatePropagation();
             save(f.key, getDown(), selectedId);
             dist.focus();
             dist.select();
@@ -446,7 +447,6 @@
         dist.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' && !e.isComposing) {
             e.preventDefault();
-            e.stopImmediatePropagation();
             save(f.key2, dist.value.trim().toUpperCase(), selectedId);
             focusNextInputOrRow(f.key);
           }
