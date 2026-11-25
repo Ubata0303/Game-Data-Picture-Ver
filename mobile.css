@@ -279,21 +279,21 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
-table {
+#playTable {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.88rem;
 }
 
-th, td {
+#playTable th, #playTable td {
   padding: 0.55rem 0.6rem;
   border-bottom: 1px solid #eef1f5;
   white-space: nowrap;
   text-align: left;
 }
 
-th {
+#playTable th {
   position: sticky;
   top: 0;
   background: #f1f5f9;
@@ -305,7 +305,7 @@ th {
 }
 
 /* 一番左端の「#（プレー番号）」をスクロール固定（Sticky left） */
-th:first-child, td:first-child {
+#playTable th:first-child, #playTable td:first-child {
   position: sticky;
   left: 0;
   background: #fff;
@@ -317,13 +317,13 @@ th:first-child, td:first-child {
   text-align: center;
   min-width: 38px;
 }
-th:first-child {
+#playTable th:first-child {
   background: #f1f5f9;
   z-index: 15;
 }
 
-tbody tr:hover { background: #f8fafc; }
-tbody tr.selected { background: var(--primary-weak); }
+#playTable tbody tr:hover { background: #f8fafc; }
+#playTable tbody tr.selected { background: var(--primary-weak); }
 
 /* Play図ボタン */
 .draw-btn-has {
@@ -641,18 +641,24 @@ tbody tr.selected { background: var(--primary-weak); }
 }
 .tendency-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: collapse !important;
   font-size: 0.82rem;
 }
 .tendency-table th, .tendency-table td {
   padding: 0.45rem 0.55rem;
   text-align: center;
+  position: static !important;
+  box-shadow: none !important;
+}
+
+#runPassTable {
+  min-width: 480px;
 }
 
 /* Excel風ボーダー */
 .excel-style {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: collapse !important;
   border: 2px solid var(--border-dark, #333333);
 }
 .excel-style th, .excel-style td {
@@ -719,8 +725,10 @@ tbody tr.selected { background: var(--primary-weak); }
 
 /* Personnel 階層表 */
 .personnel-hierarchical-table {
+  min-width: 780px;
   width: 100%;
   table-layout: fixed;
+  border-collapse: collapse !important;
   border: 2px solid var(--border-dark, #333333);
 }
 .personnel-hierarchical-table thead tr th {
@@ -829,6 +837,9 @@ tbody tr.selected { background: var(--primary-weak); }
   border-bottom: 2px solid #64748b !important;
 }
 
+#personnelTable {
+  min-width: 650px;
+}
 #personnelTable th:not(:first-child):not(:nth-child(2)),
 #personnelTable td:not(:first-child):not(:nth-child(2)) {
   min-width: 105px;

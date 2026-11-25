@@ -502,6 +502,7 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   gap: 1.5rem;
   flex: 1;
   min-height: 0;
+  min-width: 0;
   overflow-y: auto;
 }
 .tendency-card {
@@ -510,6 +511,13 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   border-radius: 8px;
   padding: 1.2rem;
   box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  min-width: 0;
+  max-width: 100%;
+}
+.tendency-card .table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
 }
 .tendency-card-head {
   display: flex;
@@ -534,6 +542,16 @@ body.view-only .draw-btn-empty { display: inline-flex; }
 .tendency-table th, .tendency-table td {
   padding: 0.55rem 0.65rem;
   text-align: center;
+}
+
+@media (max-width: 900px) {
+  .tendency-card {
+    padding: 0.8rem 0.5rem;
+  }
+  .tendency-table th, .tendency-table td {
+    padding: 0.45rem 0.35rem;
+    font-size: 0.85rem;
+  }
 }
 
 /* ---------- Excel風の引き締まったダーク罫線 & パステル背景 (dd.htmlスタイル) ---------- */
