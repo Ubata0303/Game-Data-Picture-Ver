@@ -1437,13 +1437,6 @@
         return td;
       };
 
-      tr.append(
-        tdSit,
-        formatCell(stat.run, runPct),
-        formatCell(stat.pass, passPct),
-        tdTotal
-      );
-
       // 比率バー (Run: 赤, Pass: 青)
       const tdBar = el('td', 'tendency-bar-cell');
       if (stat.total > 0 && (stat.run > 0 || stat.pass > 0)) {
@@ -1462,7 +1455,14 @@
       } else {
         tdBar.innerHTML = '<span class="empty-cell">—</span>';
       }
-      tr.appendChild(tdBar);
+
+      tr.append(
+        tdSit,
+        formatCell(stat.run, runPct),
+        formatCell(stat.pass, passPct),
+        tdBar,
+        tdTotal
+      );
 
       runPassTbody.appendChild(tr);
     };
