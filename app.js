@@ -2143,7 +2143,7 @@
         if (!confirm('実在する100プレー（全項目・全件作図付き）を一括注入したテスト試合を作成しますか？\n（動作速度や傾向表・CSV出力の検証ができます）')) return;
         toast('100プレーと作図データを一括生成中...');
         const testPlays = generate100RealPlays();
-        const testGameName = `🏈 100Play検証 (${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })})`;
+        const testGameName = `100Play検証 (${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })})`;
         const gid = store.createGameWithPlays ? store.createGameWithPlays(testGameName, testPlays) : store.createGame({ name: testGameName, createdBy: me });
         toast('✅ 100プレーの注入が完了しました！');
         location.hash = '#/game/' + gid;
