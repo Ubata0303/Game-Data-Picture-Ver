@@ -1132,7 +1132,7 @@
       if (total === 0) return '<span style="color:#94a3b8;">0%</span>';
       const pct = Math.round((count / total) * 100);
       if (pct >= 70 && count >= 2) {
-        return `<span style="font-weight: 800; color:#e11d48;">${pct}%</span>`;
+        return `<span style="font-weight: 800; color: #1e293b;">${pct}%</span>`;
       }
       return `${pct}%`;
     };
@@ -1233,7 +1233,7 @@
         const tdFormPct = document.createElement('td');
         tdFormPct.rowSpan = 2;
         tdFormPct.className = 'formation-percent';
-        tdFormPct.innerHTML = `<span style="${fPct >= 70 ? 'color:#e11d48; font-weight:800;' : ''}">${fPct}%</span><br><span class="stat-count">(${fData.total}/${data.total})</span>`;
+        tdFormPct.innerHTML = `<span style="${fPct >= 70 ? 'font-weight:800; color:#1e293b;' : ''}">${fPct}%</span><br><span class="stat-count">(${fData.total}/${data.total})</span>`;
 
         const tdFPassType = el('td', `type-cell type-pass ${getBgClass('pass', fData.categories.pass.count, fData.total)}`, 'Pass');
         const tdFPassPct = document.createElement('td');
