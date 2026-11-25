@@ -124,11 +124,10 @@
     return out;
   };
 
-  // プレー名からのRun/Pass/RPO先行判定（手動変更・誤認識防止用の下書きアシスト）
+  // プレー名からのRun/Pass先行判定（手動変更・誤認識防止用の下書きアシスト）
   function guessPlayType(name) {
     if (!name) return '';
     const upper = name.toUpperCase().trim();
-    if (upper.includes('RPO')) return 'RPO';
     // PASS系キーワード（※"SIDE"の単体判定により"Inside"/"Outside"が誤判定されるのを単語境界で防止）
     const passKws = ['STEP', 'PAP', 'BOOTS', 'BOOT', 'NAKED', 'SCREEN', 'BUBBLE', 'SIDELINE', 'DASH', 'ROLL', 'SPRINT', 'HAIL MARY', 'PASS', 'CROSS', 'SLANT', 'HITCH', 'MESH', 'VERTICAL', 'FLOOD', 'STICK', 'STRIKE', 'CORNER', 'POST', 'FADE', 'SEAM', 'DIG'];
     const isPass = passKws.some((k) => upper.includes(k)) || /\bSIDE\b/.test(upper);
@@ -365,14 +364,10 @@
         const passBtn = el('button', 'runpass-btn btn-pass', 'Pass');
         passBtn.type = 'button';
         passBtn.tabIndex = -1;
-        const rpoBtn = el('button', 'runpass-btn btn-rpo', 'RPO');
-        rpoBtn.type = 'button';
-        rpoBtn.tabIndex = -1;
 
         const updateActive = (val) => {
           runBtn.classList.toggle('on', val === 'Run');
           passBtn.classList.toggle('on', val === 'Pass');
-          rpoBtn.classList.toggle('on', val === 'RPO');
         };
 
         runBtn.onclick = () => {
@@ -389,16 +384,8 @@
           save(f.key, next);
         };
 
-        rpoBtn.onclick = () => {
-          const cur = selectedPlay()?.[f.key] ?? '';
-          const next = cur === 'RPO' ? '' : 'RPO';
-          updateActive(next);
-          save(f.key, next);
-        };
-
         box.appendChild(runBtn);
         box.appendChild(passBtn);
-        box.appendChild(rpoBtn);
         body.appendChild(box);
 
         return {
@@ -917,14 +904,12 @@
         tr.appendChild(td);
       });
 
-      // Type セル (Run / Pass / RPO)
+      // Type セル (Run / Pass)
       const typeTd = el('td', 'play-type-cell');
       if (p.playType === 'Run') {
         typeTd.appendChild(el('span', 'badge-run', 'Run'));
       } else if (p.playType === 'Pass') {
         typeTd.appendChild(el('span', 'badge-pass', 'Pass'));
-      } else if (p.playType === 'RPO') {
-        typeTd.appendChild(el('span', 'badge-rpo', 'RPO'));
       }
       if (role !== 'all' && roleHas('playType')) typeTd.className = 'mine';
       tr.appendChild(typeTd);
@@ -1072,16 +1057,14 @@
       let playName = (p.play || '').trim() || '(未入力)';
 
       const typeUpper = (p.playType || '').toUpperCase().trim();
-      const playUpper = (p.play || '').toUpperCase().trim();
-      const isRPO = typeUpper === 'RPO' || playUpper.includes('RPO');
-      const isRun = !isRPO && (typeUpper === 'RUN' || typeUpper === 'R');
-      const isPass = !isRPO && (typeUpper === 'PASS' || typeUpper === 'P');
-      const category = isRPO ? 'rpo' : (isPass ? 'pass' : (isRun ? 'run' : 'other'));
+      const isRun = typeUpper === 'RUN' || typeUpper === 'R';
+      const isPass = typeUpper === 'PASS' || typeUpper === 'P';
+      const category = isPass ? 'pass' : (isRun ? 'run' : 'other');
 
       if (!persStats[pers]) {
         persStats[pers] = {
           total: 0,
-          categories: { run: 0, pass: 0, rpo: 0, other: 0 },
+          categories: { run: 0, pass: 0, other: 0 },
           formations: {},
         };
       }
@@ -1096,7 +1079,6 @@
           categories: {
             run: { count: 0, plays: {} },
             pass: { count: 0, plays: {} },
-            rpo: { count: 0, plays: {} },
           },
         };
       }
@@ -1138,7 +1120,6 @@
       if (pct >= 70) {
         if (type === 'pass') return 'bg-pass-high';
         if (type === 'run') return 'bg-run-high';
-        if (type === 'rpo') return 'bg-rpo-high';
       }
       return '';
     };
@@ -1163,12 +1144,13 @@
     persKeys.forEach((per) => {
       const data = persStats[per];
       const forms = Object.keys(data.formations).sort((a, b) => data.formations[b].total - data.formations[a].total);
-      const personnelRowspan = 3 + (forms.length * 3);
+      // 各Formation 2行（Pass & Run）+ 全体合計 2行
+      const personnelRowspan = 2 + (forms.length * 2);
 
       const tbody = document.createElement('tbody');
       tbody.className = 'personnel-tbody';
 
-      // 1行目: Personnel Badge, Notes, 合計(3行結合), Pass行
+      // 1行目: Personnel Badge, Notes, 合計(2行結合), Pass行
       const tr1 = document.createElement('tr');
       tr1.style.borderTop = '2.5px solid #333333';
 
@@ -1198,14 +1180,14 @@
       tdOther.appendChild(taOther);
 
       const tdSummaryForm = document.createElement('td');
-      tdSummaryForm.rowSpan = 3;
+      tdSummaryForm.rowSpan = 2;
       tdSummaryForm.className = 'pers-summary-cell';
       tdSummaryForm.style.fontWeight = '700';
       tdSummaryForm.style.textAlign = 'center';
       tdSummaryForm.innerHTML = `全体合計<br><span class="stat-count">(${data.total}/${totalPersPlays})</span>`;
 
       const tdSummaryRatio = document.createElement('td');
-      tdSummaryRatio.rowSpan = 3;
+      tdSummaryRatio.rowSpan = 2;
       tdSummaryRatio.className = 'pers-summary-cell';
       tdSummaryRatio.style.textAlign = 'center';
       tdSummaryRatio.style.fontWeight = '700';
@@ -1222,6 +1204,7 @@
 
       // 2行目: Run全体
       const tr2 = document.createElement('tr');
+      tr2.className = 'pers-summary-end';
       const tdRunType = el('td', `type-cell type-run ${getBgClass('run', data.categories.run, data.total)}`, 'Run');
       const tdRunPct = document.createElement('td');
       tdRunPct.className = `percent-cell ${getBgClass('run', data.categories.run, data.total)}`;
@@ -1229,17 +1212,6 @@
       const tdRunPlays = el('td', `plays-cell ${getBgClass('run', data.categories.run, data.total)}`, '');
       tr2.append(tdRunType, tdRunPct, tdRunPlays);
       tbody.appendChild(tr2);
-
-      // 3行目: RPO全体
-      const tr3 = document.createElement('tr');
-      tr3.className = 'pers-summary-end';
-      const tdRpoType = el('td', `type-cell type-rpo ${getBgClass('rpo', data.categories.rpo, data.total)}`, 'RPO');
-      const tdRpoPct = document.createElement('td');
-      tdRpoPct.className = `percent-cell ${getBgClass('rpo', data.categories.rpo, data.total)}`;
-      tdRpoPct.innerHTML = getPctText(data.categories.rpo, data.total);
-      const tdRpoPlays = el('td', `plays-cell ${getBgClass('rpo', data.categories.rpo, data.total)}`, '');
-      tr3.append(tdRpoType, tdRpoPct, tdRpoPlays);
-      tbody.appendChild(tr3);
 
       // 各Formationのブロック
       forms.forEach((form, fIdx) => {
@@ -1250,12 +1222,12 @@
         // Formation Pass行
         const trForm1 = document.createElement('tr');
         const tdFormName = document.createElement('td');
-        tdFormName.rowSpan = 3;
+        tdFormName.rowSpan = 2;
         tdFormName.className = 'formation-name';
         tdFormName.textContent = form;
 
         const tdFormPct = document.createElement('td');
-        tdFormPct.rowSpan = 3;
+        tdFormPct.rowSpan = 2;
         tdFormPct.className = 'formation-percent';
         tdFormPct.innerHTML = `<span style="${fPct >= 70 ? 'color:#e11d48; font-weight:800;' : ''}">${fPct}%</span><br><span class="stat-count">(${fData.total}/${data.total})</span>`;
 
@@ -1272,6 +1244,7 @@
 
         // Formation Run行
         const trForm2 = document.createElement('tr');
+        if (isLastForm) trForm2.className = 'border-bottom-thick';
         const tdFRunType = el('td', `type-cell type-run ${getBgClass('run', fData.categories.run.count, fData.total)}`, 'Run');
         const tdFRunPct = document.createElement('td');
         tdFRunPct.className = `percent-cell ${getBgClass('run', fData.categories.run.count, fData.total)}`;
@@ -1282,20 +1255,6 @@
 
         trForm2.append(tdFRunType, tdFRunPct, tdFRunPlays);
         tbody.appendChild(trForm2);
-
-        // Formation RPO行
-        const trForm3 = document.createElement('tr');
-        if (isLastForm) trForm3.className = 'border-bottom-thick';
-        const tdFRpoType = el('td', `type-cell type-rpo ${getBgClass('rpo', fData.categories.rpo.count, fData.total)}`, 'RPO');
-        const tdFRpoPct = document.createElement('td');
-        tdFRpoPct.className = `percent-cell ${getBgClass('rpo', fData.categories.rpo.count, fData.total)}`;
-        tdFRpoPct.innerHTML = getPctText(fData.categories.rpo.count, fData.total);
-        const tdFRpoPlays = document.createElement('td');
-        tdFRpoPlays.className = `plays-cell ${getBgClass('rpo', fData.categories.rpo.count, fData.total)}`;
-        tdFRpoPlays.innerHTML = formatPlays(fData.categories.rpo.plays);
-
-        trForm3.append(tdFRpoType, tdFRpoPct, tdFRpoPlays);
-        tbody.appendChild(trForm3);
       });
 
       table.appendChild(tbody);
@@ -1372,18 +1331,16 @@
 
     const sitStats = {};
     SITUATIONS.forEach((s) => {
-      sitStats[s] = { total: 0, run: 0, pass: 0, rpo: 0, pers: {} };
+      sitStats[s] = { total: 0, run: 0, pass: 0, pers: {} };
     });
-    const totalStat = { total: 0, run: 0, pass: 0, rpo: 0, pers: {} };
+    const totalStat = { total: 0, run: 0, pass: 0, pers: {} };
     const allPersSet = new Set();
 
     validPlays.forEach((p) => {
       const sit = getSituationGroup(p);
       const typeUpper = (p.playType || '').toUpperCase().trim();
-      const playUpper = (p.play || '').toUpperCase().trim();
-      const isRPO = typeUpper === 'RPO' || playUpper.includes('RPO');
-      const isRun = !isRPO && (typeUpper === 'RUN' || typeUpper === 'R');
-      const isPass = !isRPO && (typeUpper === 'PASS' || typeUpper === 'P');
+      const isRun = typeUpper === 'RUN' || typeUpper === 'R';
+      const isPass = typeUpper === 'PASS' || typeUpper === 'P';
       const pers = (p.personnel || '').trim();
 
       if (pers) allPersSet.add(pers);
@@ -1392,13 +1349,11 @@
         sitStats[sit].total++;
         if (isRun) sitStats[sit].run++;
         if (isPass) sitStats[sit].pass++;
-        if (isRPO) sitStats[sit].rpo++;
         if (pers) sitStats[sit].pers[pers] = (sitStats[sit].pers[pers] || 0) + 1;
       }
       totalStat.total++;
       if (isRun) totalStat.run++;
       if (isPass) totalStat.pass++;
-      if (isRPO) totalStat.rpo++;
       if (pers) totalStat.pers[pers] = (totalStat.pers[pers] || 0) + 1;
     });
 
@@ -1422,7 +1377,6 @@
 
       const runPct = stat.total > 0 ? Math.round((stat.run / stat.total) * 100) : 0;
       const passPct = stat.total > 0 ? Math.round((stat.pass / stat.total) * 100) : 0;
-      const rpoPct = stat.total > 0 ? Math.round((stat.rpo / stat.total) * 100) : 0;
 
       const formatCell = (count, pct) => {
         const td = document.createElement('td');
@@ -1438,13 +1392,12 @@
 
       tr.append(
         formatCell(stat.run, runPct),
-        formatCell(stat.pass, passPct),
-        formatCell(stat.rpo, rpoPct)
+        formatCell(stat.pass, passPct)
       );
 
-      // 比率バー (Run: 赤, Pass: 青, RPO: オレンジ)
+      // 比率バー (Run: 赤, Pass: 青)
       const tdBar = el('td', 'tendency-bar-cell');
-      if (stat.total > 0 && (stat.run > 0 || stat.pass > 0 || stat.rpo > 0)) {
+      if (stat.total > 0 && (stat.run > 0 || stat.pass > 0)) {
         const barWrap = el('div', 'tendency-bar');
         if (stat.run > 0) {
           const runPart = el('div', 'tendency-bar-run');
@@ -1455,11 +1408,6 @@
           const passPart = el('div', 'tendency-bar-pass');
           passPart.style.width = `${passPct}%`;
           barWrap.appendChild(passPart);
-        }
-        if (stat.rpo > 0) {
-          const rpoPart = el('div', 'tendency-bar-rpo');
-          rpoPart.style.width = `${rpoPct}%`;
-          barWrap.appendChild(rpoPart);
         }
         tdBar.appendChild(barWrap);
       } else {

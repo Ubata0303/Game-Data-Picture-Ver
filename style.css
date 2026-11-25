@@ -436,23 +436,8 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   color: #ffffff !important;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
-/* RPO: オレンジ */
-.btn-rpo {
-  background: #fffbeb;
-  border: 2px solid #f59e0b;
-  color: #b45309;
-}
-.btn-rpo:hover {
-  background: #fef3c7;
-}
-.btn-rpo.on {
-  background: #f59e0b !important;
-  border-color: #d97706 !important;
-  color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
-}
 
-/* テーブル内の Run / Pass / RPO バッジ */
+/* テーブル内の Run / Pass バッジ */
 .badge-run {
   display: inline-block;
   background: #fee2e2;
@@ -468,16 +453,6 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   background: #eff6ff;
   color: #1d4ed8;
   border: 1px solid #93c5fd;
-  font-weight: 700;
-  font-size: 0.78rem;
-  padding: 0.15rem 0.55rem;
-  border-radius: 4px;
-}
-.badge-rpo {
-  display: inline-block;
-  background: #fef3c7;
-  color: #b45309;
-  border: 1px solid #fcd34d;
   font-weight: 700;
   font-size: 0.78rem;
   padding: 0.15rem 0.55rem;
@@ -630,11 +605,6 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   height: 100%;
   transition: width 0.3s ease;
 }
-.tendency-bar-rpo {
-  background: #f59e0b;
-  height: 100%;
-  transition: width 0.3s ease;
-}
 
 /* ---------- Personnel 階層表 (personnel.html スタイル) ---------- */
 .personnel-hierarchical-table {
@@ -700,7 +670,6 @@ body.view-only .draw-btn-empty { display: inline-flex; }
 }
 .type-pass { color: #2563eb; }
 .type-run { color: #dc2626; }
-.type-rpo { color: #d97706; }
 .percent-cell {
   text-align: right;
   font-weight: 700;
@@ -722,7 +691,6 @@ body.view-only .draw-btn-empty { display: inline-flex; }
 }
 .bg-pass-high { background-color: #bae6fd !important; }
 .bg-run-high { background-color: #fca5a5 !important; }
-.bg-rpo-high { background-color: #fed7aa !important; }
 .border-bottom-thick {
   border-bottom: 2.5px solid var(--border-dark, #333333) !important;
 }
