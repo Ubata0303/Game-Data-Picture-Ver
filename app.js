@@ -1000,7 +1000,11 @@
       if (dst <= 6) return '3rd & Medium (4-6)';
       return '3rd & Long (7+)';
     }
-    if (d === 4) return '4th Down';
+    if (d === 4) {
+      // 4th Downは3yd以下（ショート勝負）のみを集計
+      if (!isNaN(dst) && dst <= 3) return '4th Down ≤3';
+      return null;
+    }
     return null;
   }
 
@@ -1012,7 +1016,7 @@
     '3rd & Short (1-3)',
     '3rd & Medium (4-6)',
     '3rd & Long (7+)',
-    '4th Down',
+    '4th Down ≤3',
   ];
 
   function filterBySituation(sit) {
