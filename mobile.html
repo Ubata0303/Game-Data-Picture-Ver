@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>試合中速データ - スマホ閲覧</title>
-  <link rel="stylesheet" href="mobile.css?v=36">
+  <link rel="stylesheet" href="mobile.css?v=51">
 </head>
 <body>
   <!-- トップバー -->
@@ -26,38 +26,122 @@
       <span id="filteredCount" class="count-badge"></span>
     </div>
 
-    <!-- 絞り込みフィルターバー（横スクロール） -->
-    <section class="filter-section">
-      <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;">
-        <div id="filterScroll" class="filter-scroll-wrap" style="flex: 1;"></div>
-        <button type="button" id="clearFilterBtn" class="filter-clear-btn" title="絞り込み条件をクリア">Clear</button>
-      </div>
-    </section>
+    <!-- プレー一覧 / 傾向分析 切り替えタブ -->
+    <div class="pane-tabs">
+      <button type="button" id="tabPlayList" class="pane-tab active">📋 プレー一覧</button>
+      <button type="button" id="tabTendency" class="pane-tab">📊 傾向分析</button>
+    </div>
 
-    <!-- テーブル一覧 -->
-    <section class="table-card">
-      <div class="table-scroll">
-        <table id="playTable">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Q</th>
-              <th>S</th>
-              <th>Hash</th>
-              <th>D&amp;D</th>
-              <th>Pers</th>
-              <th>OFF Formation</th>
-              <th>Play</th>
-              <th>Type</th>
-              <th>Play図</th>
-              <th>Def Sign</th>
-              <th>更新</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+    <!-- プレー一覧画面 -->
+    <div id="playListView" class="mobile-tab-view">
+      <!-- 絞り込みフィルターバー（横スクロール） -->
+      <section class="filter-section">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;">
+          <div id="filterScroll" class="filter-scroll-wrap" style="flex: 1;"></div>
+          <button type="button" id="clearFilterBtn" class="filter-clear-btn" title="絞り込み条件をクリア">Clear</button>
+        </div>
+      </section>
+
+      <!-- テーブル一覧 -->
+      <section class="table-card">
+        <div class="table-scroll">
+          <table id="playTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Q</th>
+                <th>S</th>
+                <th>Hash</th>
+                <th>D&amp;D</th>
+                <th>Pers</th>
+                <th>OFF Formation</th>
+                <th>Play</th>
+                <th>Type</th>
+                <th>Play図</th>
+                <th>Def Sign</th>
+                <th>更新</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- 傾向分析画面 -->
+    <div id="tendencyView" class="mobile-tab-view tendency-view hidden">
+      <!-- 表1: Down & Distance 傾向分析 (Play Type別) -->
+      <div class="tendency-card">
+        <div class="tendency-card-head">
+          <h3>Down &amp; Distance 傾向分析 (Play Type別)</h3>
+        </div>
+        <div class="table-wrap">
+          <table class="tendency-table excel-style" id="runPassTable">
+            <thead>
+              <tr>
+                <th class="th-situation">状況 (Down &amp; Dist)</th>
+                <th>Run</th>
+                <th>Pass</th>
+                <th class="tendency-bar-cell">比率</th>
+                <th style="width: 70px;">Total</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
-    </section>
+
+      <!-- 表2: Personnel 傾向分析 (Formation & Favorite Plays) -->
+      <div class="tendency-card">
+        <div class="tendency-card-head">
+          <h3>Personnel 傾向分析 (Formation &amp; Favorite Plays)</h3>
+        </div>
+        <div class="table-wrap">
+          <table class="tendency-table excel-style personnel-hierarchical-table" id="personnelHierarchyTable">
+            <colgroup>
+              <col style="width: 95px;">
+              <col style="width: 75px;">
+              <col style="width: 75px;">
+              <col style="width: 140px;">
+              <col style="width: 95px;">
+              <col style="width: 60px;">
+              <col style="width: 70px;">
+              <col style="width: auto;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Per</th>
+                <th>TE BP</th>
+                <th>Other</th>
+                <th>Formation</th>
+                <th>割合 (回数)</th>
+                <th>Type</th>
+                <th>%</th>
+                <th>Favorite Plays</th>
+              </tr>
+            </thead>
+          </table>
+        </div>
+      </div>
+
+      <!-- 表3: Personnel × 状況別マトリクス (Down & Distance別) -->
+      <div class="tendency-card">
+        <div class="tendency-card-head">
+          <h3>Personnel × 状況別マトリクス (Down &amp; Distance別)</h3>
+        </div>
+        <div class="table-wrap">
+          <table class="tendency-table excel-style" id="personnelTable">
+            <thead>
+              <tr id="personnelTableHeadRow">
+                <th class="th-situation">状況 (D&amp;D)</th>
+                <th style="width: 70px;">Total</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </main>
 
   <!-- フィルター用ボトムシートドロップダウン -->
@@ -137,8 +221,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <!-- MQTT.js (Fallback) -->
   <script src="https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js"></script>
-  <script src="config.js?v=36"></script>
-  <script src="store.js?v=36"></script>
-  <script src="mobile.js?v=36"></script>
+  <script src="config.js?v=51"></script>
+  <script src="store.js?v=51"></script>
+  <script src="mobile.js?v=51"></script>
 </body>
 </html>
