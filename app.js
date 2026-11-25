@@ -129,11 +129,12 @@
     if (!name) return '';
     const upper = name.toUpperCase().trim();
     if (upper.includes('RPO')) return ''; // RPOは手動選択を尊重
-    // PASS系キーワード
-    const passKws = ['STEP', 'PAP', 'BOOTS', 'BOOT', 'NAKED', 'SCREEN', 'BUBBLE', 'SIDE', 'DASH', 'ROLL', 'SPRINT', 'HAIL MARY', 'PASS'];
-    if (passKws.some((k) => upper.includes(k))) return 'Pass';
+    // PASS系キーワード（※"SIDE"の単体判定により"Inside"/"Outside"が誤判定されるのを単語境界で防止）
+    const passKws = ['STEP', 'PAP', 'BOOTS', 'BOOT', 'NAKED', 'SCREEN', 'BUBBLE', 'SIDELINE', 'DASH', 'ROLL', 'SPRINT', 'HAIL MARY', 'PASS', 'CROSS', 'SLANT', 'HITCH', 'MESH', 'VERTICAL', 'FLOOD', 'STICK', 'STRIKE', 'CORNER', 'POST', 'FADE', 'SEAM', 'DIG'];
+    const isPass = passKws.some((k) => upper.includes(k)) || /\bSIDE\b/.test(upper);
+    if (isPass) return 'Pass';
     // RUN系キーワード
-    const runKws = ['ZONE', 'IZ', 'MZ', 'OZ', 'POWER', 'COUNTER', 'TRAP', 'DUO', 'DIVE', 'WEDGE', 'TOSS', 'SWEEP', 'DRAW', 'OPTION', 'SNEAK', 'LOG', 'DART'];
+    const runKws = ['ZONE', 'IZ', 'MZ', 'OZ', 'POWER', 'COUNTER', 'TRAP', 'DUO', 'DIVE', 'WEDGE', 'TOSS', 'SWEEP', 'DRAW', 'OPTION', 'SNEAK', 'LOG', 'DART', 'BELLY', 'LEAD', 'ISO', 'PIN'];
     if (runKws.some((k) => upper.includes(k))) return 'Run';
     return '';
   }
@@ -1719,6 +1720,129 @@
     }, { once: true });
   }
 
+  // ---------- 100プレー一括テスト生成ヘルパー ----------
+  const REAL_PLAY_DATABASE = [
+    { formation: 'Gun Ace', play: 'Inside Zone', type: 'Run', pers: '11', def: 'Cover 3' },
+    { formation: 'Gun Ace Slot', play: 'IZ', type: 'Run', pers: '11', def: 'Cover 1' },
+    { formation: 'Gun Trio', play: 'Outside Zone', type: 'Run', pers: '11', def: 'Cover 2' },
+    { formation: 'Gun Trio Slot', play: 'OZ', type: 'Run', pers: '11', def: 'Cover 4 Quarters' },
+    { formation: 'Ace', play: 'Super Power', type: 'Run', pers: '12', def: 'Fire Zone 3' },
+    { formation: 'Ace Slot', play: 'Power G', type: 'Run', pers: '12', def: 'Cover 1 Blitz' },
+    { formation: 'Gun Bunch', play: 'Counter GT', type: 'Run', pers: '11', def: 'Tampa 2' },
+    { formation: 'Gun Bunch Open', play: 'Back Counter', type: 'Run', pers: '11', def: 'Cover 3 Sky' },
+    { formation: 'Bunch', play: 'Duo', type: 'Run', pers: '12', def: 'Cover 1 Hole' },
+    { formation: 'Gun Spread', play: 'Inside Trap', type: 'Run', pers: '10', def: 'Cover 2 Man' },
+    { formation: 'Gun Spread Wing', play: 'Pin & Pull', type: 'Run', pers: '11', def: 'Cover 3 Cloud' },
+    { formation: 'Spread Slot', play: 'QB Draw', type: 'Run', pers: '10', def: 'Cover 4' },
+    { formation: 'Gun Tray Open', play: 'Jet Sweep', type: 'Run', pers: '11', def: 'Cover 1' },
+    { formation: 'Gun Twin Terrier', play: 'Toss Crack', type: 'Run', pers: '21', def: 'Cover 3' },
+    { formation: 'Gun Twin Warrior', play: 'Iso Lead', type: 'Run', pers: '21', def: 'Cover 0 All Out' },
+    { formation: 'Twin Terrier', play: 'Belly', type: 'Run', pers: '22', def: 'Cover 1' },
+    { formation: 'Twin Warrior', play: 'Dive', type: 'Run', pers: '22', def: 'Cover 3' },
+    { formation: 'Gun Flex Terrier', play: 'Zone Read', type: 'Run', pers: '21', def: 'Cover 2' },
+    { formation: 'Gun Trips Slot', play: 'Speed Option', type: 'Run', pers: '11', def: 'Fire Zone 3' },
+    { formation: 'Trips Slot', play: 'QB Sneak', type: 'Run', pers: '12', def: 'Goal Line' },
+    { formation: 'Gun Ace', play: 'Iz PAP', type: 'Pass', pers: '11', def: 'Cover 3' },
+    { formation: 'Gun Ace Slot', play: 'Oz PAP', type: 'Pass', pers: '11', def: 'Cover 1' },
+    { formation: 'Gun Trio Slot', play: 'Counter PAP', type: 'Pass', pers: '11', def: 'Cover 2' },
+    { formation: 'Gun Bunch', play: 'Power PAP Post', type: 'Pass', pers: '11', def: 'Cover 4' },
+    { formation: 'Gun Spread', play: '3 Step Slant', type: 'Pass', pers: '10', def: 'Cover 1' },
+    { formation: 'Gun Spread Wing', play: '5 Step Out', type: 'Pass', pers: '11', def: 'Cover 3' },
+    { formation: 'Gun Trips', play: 'Quick Hitch', type: 'Pass', pers: '11', def: 'Cover 2' },
+    { formation: 'Gun Trips Slot', play: 'Mesh Cross', type: 'Pass', pers: '11', def: 'Cover 1 Man' },
+    { formation: 'Gun Tray', play: '4 Verticals', type: 'Pass', pers: '11', def: 'Cover 3 Deep' },
+    { formation: 'Gun Tray Open', play: 'Sail Flood', type: 'Pass', pers: '11', def: 'Cover 2' },
+    { formation: 'Gun Bunch Open', play: 'Y-Stick', type: 'Pass', pers: '11', def: 'Cover 4 Quarters' },
+    { formation: 'Ace Slot', play: 'Corner Strike', type: 'Pass', pers: '12', def: 'Cover 1' },
+    { formation: 'Bunch Open', play: 'Sprint Out Flood', type: 'Pass', pers: '11', def: 'Fire Zone 3' },
+    { formation: 'Gun Far Bunch Open', play: 'Bootleg Cross', type: 'Pass', pers: '11', def: 'Cover 3' },
+    { formation: 'Far Bunch Open', play: 'Naked Boot', type: 'Pass', pers: '12', def: 'Cover 1' },
+    { formation: 'Gun Twin Terrier', play: 'RB Screen', type: 'Pass', pers: '21', def: 'Cover 2 Blitz' },
+    { formation: 'Gun Twin Warrior', play: 'Bubble Screen', type: 'Pass', pers: '21', def: 'Cover 3' },
+    { formation: 'Flex Terrier', play: 'Middle Screen', type: 'Pass', pers: '21', def: 'Cover 1' },
+    { formation: 'Spread', play: 'Roll Out Pass', type: 'Pass', pers: '10', def: 'Cover 2' },
+    { formation: 'Gun Spread Slot', play: 'Hail Mary', type: 'Pass', pers: '10', def: 'Prevent 3-Man' }
+  ];
+
+  function createSampleDrawingBase64(seq) {
+    const header = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA4QAAAH0CAYAAAC1C9tKAAAAAXNSR0IArs4c6Q';
+    let body = '';
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const targetBytes = 18 * 1024;
+    for (let i = 0; i < targetBytes; i++) {
+      body += alphabet[(i * 13 + seq * 17) % alphabet.length];
+    }
+    return header + body;
+  }
+
+  function createSampleDrawingLayer(seq, playItem) {
+    const strokes = [];
+    strokes.push({ tool: 'line', color: '#2563eb', width: 2, points: [{ x: 50, y: 350 }, { x: 850, y: 350 }] });
+    const routeCount = playItem.type === 'Pass' ? 4 : 2;
+    for (let r = 0; r < routeCount; r++) {
+      const pts = [];
+      const startX = 150 + r * 160;
+      pts.push({ x: startX, y: 350 });
+      pts.push({ x: startX, y: 220 });
+      if (r % 2 === 0) pts.push({ x: startX + 60, y: 150 });
+      else pts.push({ x: startX - 40, y: 160 });
+      strokes.push({
+        tool: 'arrow',
+        color: playItem.type === 'Pass' ? '#2563eb' : '#dc2626',
+        width: 3,
+        points: pts
+      });
+    }
+    strokes.push({ tool: 'text', color: '#000000', text: playItem.play, x: 400, y: 420 });
+    return strokes;
+  }
+
+  function generate100RealPlays() {
+    const plays = [];
+    let currentQtr = 1;
+    let currentSeries = 1;
+    let currentDown = 1;
+    let currentDist = 10;
+    const hashes = ['L', 'M', 'R'];
+
+    for (let i = 1; i <= 100; i++) {
+      if (i === 26) { currentQtr = 2; currentSeries++; currentDown = 1; currentDist = 10; }
+      if (i === 51) { currentQtr = 3; currentSeries++; currentDown = 1; currentDist = 10; }
+      if (i === 76) { currentQtr = 4; currentSeries++; currentDown = 1; currentDist = 10; }
+
+      const tpl = REAL_PLAY_DATABASE[(i - 1) % REAL_PLAY_DATABASE.length];
+      const hash = hashes[(i * 2 + currentDown) % 3];
+
+      plays.push({
+        qtr: String(currentQtr),
+        series: String(currentSeries),
+        hash: hash,
+        down: String(currentDown),
+        dist: String(currentDist),
+        personnel: tpl.pers,
+        formation: tpl.formation,
+        play: tpl.play,
+        playType: tpl.type,
+        playTypeManual: false,
+        defSign: tpl.def,
+        drawing: createSampleDrawingBase64(i),
+        drawingLayer: createSampleDrawingLayer(i, tpl),
+        updatedBy: me || '山田（検証員）'
+      });
+
+      const gain = (i * 7) % 15 - 3;
+      if (gain >= currentDist) {
+        currentDown = 1; currentDist = 10;
+      } else if (currentDown === 4) {
+        currentSeries++; currentDown = 1; currentDist = 10;
+      } else {
+        currentDown++;
+        currentDist = Math.max(1, currentDist - Math.max(0, gain));
+      }
+    }
+    return plays;
+  }
+
   // ---------- 起動 ----------
   async function init() {
     try {
@@ -1759,6 +1883,18 @@
       $('#newGameName').value = '';
       location.hash = '#/game/' + id;
     });
+
+    if ($('#test100Btn')) {
+      $('#test100Btn').onclick = () => {
+        if (!confirm('実在する100プレー（全項目・全件作図付き）を一括注入したテスト試合を作成しますか？\n（動作速度や傾向表・CSV出力の検証ができます）')) return;
+        toast('100プレーと作図データを一括生成中...');
+        const testPlays = generate100RealPlays();
+        const testGameName = `🏈 100Play検証 (${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })})`;
+        const gid = store.createGameWithPlays ? store.createGameWithPlays(testGameName, testPlays) : store.createGame({ name: testGameName, createdBy: me });
+        toast('✅ 100プレーの注入が完了しました！');
+        location.hash = '#/game/' + gid;
+      };
+    }
     $('#nextPlayBtn').onclick = () => selectNextRow();
     $('#newSeriesBtn').onclick = handleNewSeries;
     $('#deleteBtn').onclick = () => {

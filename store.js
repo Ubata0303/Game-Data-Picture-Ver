@@ -220,6 +220,25 @@
       return id;
     }
 
+    createGameWithPlays(name, playsList) {
+      const d = this._load();
+      const gid = uid();
+      const baseTime = Date.now();
+      d.games[gid] = { name, createdAt: baseTime };
+      d.plays[gid] = {};
+      for (let i = 0; i < playsList.length; i++) {
+        const pid = uid();
+        d.plays[gid][pid] = {
+          ...playsList[i],
+          seq: i + 1,
+          createdAt: baseTime + (i + 1) * 10,
+          updatedAt: baseTime + (i + 1) * 10
+        };
+      }
+      this._save(d);
+      return gid;
+    }
+
     updateGame(gid, patch) {
       const d = this._load();
       if (!d.games[gid]) return;
@@ -764,6 +783,25 @@
       }
 
       batch.commit().catch((e) => console.error('試合一括作成エラー:', e));
+      return gid;
+    }
+
+    createGameWithPlays(name, playsList) {
+      const gRef = this.db.collection('games').doc();
+      const gid = gRef.id;
+      const baseTime = Date.now();
+      const batch = this.db.batch();
+      batch.set(gRef, { name, createdAt: baseTime, updatedAt: baseTime });
+      for (let i = 0; i < playsList.length; i++) {
+        const pRef = gRef.collection('plays').doc();
+        batch.set(pRef, {
+          ...playsList[i],
+          seq: i + 1,
+          createdAt: baseTime + (i + 1) * 10,
+          updatedAt: baseTime + (i + 1) * 10
+        });
+      }
+      batch.commit().catch((e) => console.error('テスト試合生成エラー:', e));
       return gid;
     }
 
