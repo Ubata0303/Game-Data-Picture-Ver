@@ -124,11 +124,11 @@
     return out;
   };
 
-  // プレー名からのRun/Pass先行判定（手動変更・誤認識防止用の下書きアシスト）
+  // プレー名からのRun/Pass/RPO先行判定（手動変更・誤認識防止用の下書きアシスト）
   function guessPlayType(name) {
     if (!name) return '';
     const upper = name.toUpperCase().trim();
-    if (upper.includes('RPO')) return ''; // RPOは手動選択を尊重
+    if (upper.includes('RPO')) return 'RPO';
     // PASS系キーワード（※"SIDE"の単体判定により"Inside"/"Outside"が誤判定されるのを単語境界で防止）
     const passKws = ['STEP', 'PAP', 'BOOTS', 'BOOT', 'NAKED', 'SCREEN', 'BUBBLE', 'SIDELINE', 'DASH', 'ROLL', 'SPRINT', 'HAIL MARY', 'PASS', 'CROSS', 'SLANT', 'HITCH', 'MESH', 'VERTICAL', 'FLOOD', 'STICK', 'STRIKE', 'CORNER', 'POST', 'FADE', 'SEAM', 'DIG'];
     const isPass = passKws.some((k) => upper.includes(k)) || /\bSIDE\b/.test(upper);
@@ -365,10 +365,14 @@
         const passBtn = el('button', 'runpass-btn btn-pass', 'Pass');
         passBtn.type = 'button';
         passBtn.tabIndex = -1;
+        const rpoBtn = el('button', 'runpass-btn btn-rpo', 'RPO');
+        rpoBtn.type = 'button';
+        rpoBtn.tabIndex = -1;
 
         const updateActive = (val) => {
           runBtn.classList.toggle('on', val === 'Run');
           passBtn.classList.toggle('on', val === 'Pass');
+          rpoBtn.classList.toggle('on', val === 'RPO');
         };
 
         runBtn.onclick = () => {
@@ -385,8 +389,16 @@
           save(f.key, next);
         };
 
+        rpoBtn.onclick = () => {
+          const cur = selectedPlay()?.[f.key] ?? '';
+          const next = cur === 'RPO' ? '' : 'RPO';
+          updateActive(next);
+          save(f.key, next);
+        };
+
         box.appendChild(runBtn);
         box.appendChild(passBtn);
+        box.appendChild(rpoBtn);
         body.appendChild(box);
 
         return {
@@ -905,12 +917,14 @@
         tr.appendChild(td);
       });
 
-      // Type セル (Run / Pass)
+      // Type セル (Run / Pass / RPO)
       const typeTd = el('td', 'play-type-cell');
       if (p.playType === 'Run') {
         typeTd.appendChild(el('span', 'badge-run', 'Run'));
       } else if (p.playType === 'Pass') {
         typeTd.appendChild(el('span', 'badge-pass', 'Pass'));
+      } else if (p.playType === 'RPO') {
+        typeTd.appendChild(el('span', 'badge-rpo', 'RPO'));
       }
       if (role !== 'all' && roleHas('playType')) typeTd.className = 'mine';
       tr.appendChild(typeTd);
@@ -1033,99 +1047,262 @@
     }
   }
 
-  function renderTendency() {
-    const runPassTbody = $('#runPassTable tbody');
-    const persTbody = $('#personnelTable tbody');
-    const persHeadRow = $('#personnelTableHeadRow');
-    if (!runPassTbody || !persTbody || !persHeadRow) return;
+  function escapeHTML(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
-    // 有効なプレー
-    const validPlays = plays.filter((p) => p.down || p.play || p.personnel || p.playType);
+  function renderPersonnelHierarchy(table, validPlays) {
+    // 既存のtbodyを全削除
+    const existingTbodys = table.querySelectorAll('tbody');
+    existingTbodys.forEach((tb) => tb.remove());
 
-    const sitStats = {};
-    SITUATIONS.forEach((s) => {
-      sitStats[s] = { total: 0, run: 0, pass: 0, pers: {} };
-    });
-    const totalStat = { total: 0, run: 0, pass: 0, pers: {} };
-    const allPersSet = new Set();
+    const persStats = {};
+    let totalPersPlays = 0;
 
     validPlays.forEach((p) => {
-      const sit = getSituationGroup(p);
-      const isRun = p.playType === 'Run';
-      const isPass = p.playType === 'Pass';
-      const pers = (p.personnel || '').trim();
+      let pers = (p.personnel || '').trim();
+      if (!pers) return;
+      totalPersPlays++;
+      let form = (p.formation || '').trim() || '(未入力)';
+      let playName = (p.play || '').trim() || '(未入力)';
 
-      if (pers) allPersSet.add(pers);
+      const typeUpper = (p.playType || '').toUpperCase().trim();
+      const playUpper = (p.play || '').toUpperCase().trim();
+      const isRPO = typeUpper === 'RPO' || playUpper.includes('RPO');
+      const isRun = !isRPO && (typeUpper === 'RUN' || typeUpper === 'R');
+      const isPass = !isRPO && (typeUpper === 'PASS' || typeUpper === 'P');
+      const category = isRPO ? 'rpo' : (isPass ? 'pass' : (isRun ? 'run' : 'other'));
 
-      if (sit && sitStats[sit]) {
-        sitStats[sit].total++;
-        if (isRun) sitStats[sit].run++;
-        if (isPass) sitStats[sit].pass++;
-        if (pers) sitStats[sit].pers[pers] = (sitStats[sit].pers[pers] || 0) + 1;
+      if (!persStats[pers]) {
+        persStats[pers] = {
+          total: 0,
+          categories: { run: 0, pass: 0, rpo: 0, other: 0 },
+          formations: {},
+        };
       }
-      totalStat.total++;
-      if (isRun) totalStat.run++;
-      if (isPass) totalStat.pass++;
-      if (pers) totalStat.pers[pers] = (totalStat.pers[pers] || 0) + 1;
+      persStats[pers].total++;
+      if (persStats[pers].categories[category] !== undefined) {
+        persStats[pers].categories[category]++;
+      }
+
+      if (!persStats[pers].formations[form]) {
+        persStats[pers].formations[form] = {
+          total: 0,
+          categories: {
+            run: { count: 0, plays: {} },
+            pass: { count: 0, plays: {} },
+            rpo: { count: 0, plays: {} },
+          },
+        };
+      }
+      persStats[pers].formations[form].total++;
+      if (persStats[pers].formations[form].categories[category]) {
+        persStats[pers].formations[form].categories[category].count++;
+        const playsMap = persStats[pers].formations[form].categories[category].plays;
+        playsMap[playName] = (playsMap[playName] || 0) + 1;
+      }
     });
 
-    // 表1: ラン・パス比率表
-    runPassTbody.innerHTML = '';
-    const renderRunPassRow = (label, stat, isTotal = false) => {
-      const isStart = ['1st Down', '2nd & Short (1-3)', '3rd & Short (1-3)', '4th Down'].includes(label);
-      const isMid = ['2nd & Medium (4-6)', '3rd & Medium (4-6)'].includes(label);
-      const isEnd = ['1st Down', '2nd & Long (7+)', '3rd & Long (7+)', '4th Down'].includes(label);
-      const cls = [
-        isTotal ? 'total-row' : '',
-        isStart ? 'down-group-start' : '',
-        isMid ? 'down-group-mid' : '',
-        isEnd ? 'down-group-end' : '',
-      ].filter(Boolean).join(' ');
-      const tr = el('tr', cls);
-      tr.appendChild(el('td', 'td-situation', label));
-      tr.appendChild(el('td', '', String(stat.total)));
+    const persKeys = Object.keys(persStats);
+    if (persKeys.length === 0) {
+      const emptyTbody = document.createElement('tbody');
+      emptyTbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 2rem; color: #64748b; font-weight: 600;">Personnelデータが入力されると、ここにFormation・Play傾向が集計されます</td></tr>';
+      table.appendChild(emptyTbody);
+      return;
+    }
 
-      const runPct = stat.total > 0 ? Math.round((stat.run / stat.total) * 100) : 0;
-      const passPct = stat.total > 0 ? Math.round((stat.pass / stat.total) * 100) : 0;
+    // Personnelのソート（回数が多い順、同数なら標準順）
+    persKeys.sort((a, b) => persStats[b].total - persStats[a].total);
 
-      const tdRun = el('td', 'val-run', String(stat.run));
-      const tdRunPct = el('td', 'val-run', stat.total > 0 ? `${runPct}%` : '—');
-      const tdPass = el('td', 'val-pass', String(stat.pass));
-      const tdPassPct = el('td', 'val-pass', stat.total > 0 ? `${passPct}%` : '—');
+    // メモ欄（TE BP, Other）の読み込み
+    let notes = {};
+    try {
+      notes = JSON.parse(localStorage.getItem('fdl_pers_notes_' + currentGameId) || '{}');
+    } catch (_) {}
 
-      if (runPct >= 70 && stat.total >= 2) {
-        tdRunPct.style.background = '#fee2e2';
-        tdRunPct.style.fontWeight = '800';
-      }
-      if (passPct >= 70 && stat.total >= 2) {
-        tdPassPct.style.background = '#dbeafe';
-        tdPassPct.style.fontWeight = '800';
-      }
-
-      tr.append(tdRun, tdRunPct, tdPass, tdPassPct);
-
-      // 比率バー
-      const tdBar = el('td', 'tendency-bar-cell');
-      if (stat.total > 0 && (stat.run > 0 || stat.pass > 0)) {
-        const barWrap = el('div', 'tendency-bar');
-        const runPart = el('div', 'tendency-bar-run');
-        runPart.style.width = `${runPct}%`;
-        const passPart = el('div', 'tendency-bar-pass');
-        passPart.style.width = `${passPct}%`;
-        barWrap.append(runPart, passPart);
-        tdBar.appendChild(barWrap);
-      } else {
-        tdBar.textContent = '—';
-      }
-      tr.appendChild(tdBar);
-
-      runPassTbody.appendChild(tr);
+    const saveNote = (key, val) => {
+      notes[key] = val;
+      try {
+        localStorage.setItem('fdl_pers_notes_' + currentGameId, JSON.stringify(notes));
+      } catch (_) {}
     };
 
-    SITUATIONS.forEach((s) => renderRunPassRow(s, sitStats[s]));
-    renderRunPassRow('全プレー合計', totalStat, true);
+    const getBgClass = (type, count, total) => {
+      if (total === 0 || count < 2) return '';
+      const pct = (count / total) * 100;
+      if (pct >= 70) {
+        if (type === 'pass') return 'bg-pass-high';
+        if (type === 'run') return 'bg-run-high';
+        if (type === 'rpo') return 'bg-rpo-high';
+      }
+      return '';
+    };
 
-    // 表2: パーソナル比率表
+    const getPctText = (count, total) => {
+      if (total === 0) return '<span style="color:#94a3b8;">0%</span>';
+      const pct = Math.round((count / total) * 100);
+      if (pct >= 70 && count >= 2) {
+        return `<span style="font-weight: 800; color:#e11d48;">${pct}%</span>`;
+      }
+      return `${pct}%`;
+    };
+
+    const formatPlays = (playsObj) => {
+      const sorted = Object.entries(playsObj).sort((a, b) => b[1] - a[1]);
+      if (sorted.length === 0) return '<span style="color:#94a3b8;">—</span>';
+      return sorted
+        .map(([play, count]) => `<span class="play-item"><strong>${escapeHTML(play)}</strong> <span class="play-count">(${count})</span></span>`)
+        .join(', ');
+    };
+
+    persKeys.forEach((per) => {
+      const data = persStats[per];
+      const forms = Object.keys(data.formations).sort((a, b) => data.formations[b].total - data.formations[a].total);
+      const personnelRowspan = 3 + (forms.length * 3);
+
+      const tbody = document.createElement('tbody');
+      tbody.className = 'personnel-tbody';
+
+      // 1行目: Personnel Badge, Notes, 合計(3行結合), Pass行
+      const tr1 = document.createElement('tr');
+      tr1.style.borderTop = '2.5px solid #333333';
+
+      const tdPer = document.createElement('td');
+      tdPer.rowSpan = personnelRowspan;
+      tdPer.className = 'personnel-cell';
+      tdPer.textContent = per;
+
+      const tdTebp = document.createElement('td');
+      tdTebp.rowSpan = personnelRowspan;
+      tdTebp.className = 'input-cell';
+      const taTebp = document.createElement('textarea');
+      taTebp.className = 'editable-field';
+      taTebp.placeholder = 'メモ...';
+      taTebp.value = notes[per + '_tebp'] || '';
+      taTebp.oninput = (e) => saveNote(per + '_tebp', e.target.value);
+      tdTebp.appendChild(taTebp);
+
+      const tdOther = document.createElement('td');
+      tdOther.rowSpan = personnelRowspan;
+      tdOther.className = 'input-cell';
+      const taOther = document.createElement('textarea');
+      taOther.className = 'editable-field';
+      taOther.placeholder = 'メモ...';
+      taOther.value = notes[per + '_other'] || '';
+      taOther.oninput = (e) => saveNote(per + '_other', e.target.value);
+      tdOther.appendChild(taOther);
+
+      const tdSummaryForm = document.createElement('td');
+      tdSummaryForm.rowSpan = 3;
+      tdSummaryForm.className = 'pers-summary-cell';
+      tdSummaryForm.style.fontWeight = '700';
+      tdSummaryForm.style.textAlign = 'center';
+      tdSummaryForm.innerHTML = `全体合計<br><span class="stat-count">(${data.total}/${totalPersPlays})</span>`;
+
+      const tdSummaryRatio = document.createElement('td');
+      tdSummaryRatio.rowSpan = 3;
+      tdSummaryRatio.className = 'pers-summary-cell';
+      tdSummaryRatio.style.textAlign = 'center';
+      tdSummaryRatio.style.fontWeight = '700';
+      tdSummaryRatio.innerHTML = `${Math.round((data.total / totalPersPlays) * 100)}%`;
+
+      const tdPassType = el('td', `type-cell type-pass ${getBgClass('pass', data.categories.pass, data.total)}`, 'Pass');
+      const tdPassPct = document.createElement('td');
+      tdPassPct.className = `percent-cell ${getBgClass('pass', data.categories.pass, data.total)}`;
+      tdPassPct.innerHTML = getPctText(data.categories.pass, data.total);
+      const tdPassPlays = el('td', `plays-cell ${getBgClass('pass', data.categories.pass, data.total)}`, '');
+
+      tr1.append(tdPer, tdTebp, tdOther, tdSummaryForm, tdSummaryRatio, tdPassType, tdPassPct, tdPassPlays);
+      tbody.appendChild(tr1);
+
+      // 2行目: Run全体
+      const tr2 = document.createElement('tr');
+      const tdRunType = el('td', `type-cell type-run ${getBgClass('run', data.categories.run, data.total)}`, 'Run');
+      const tdRunPct = document.createElement('td');
+      tdRunPct.className = `percent-cell ${getBgClass('run', data.categories.run, data.total)}`;
+      tdRunPct.innerHTML = getPctText(data.categories.run, data.total);
+      const tdRunPlays = el('td', `plays-cell ${getBgClass('run', data.categories.run, data.total)}`, '');
+      tr2.append(tdRunType, tdRunPct, tdRunPlays);
+      tbody.appendChild(tr2);
+
+      // 3行目: RPO全体
+      const tr3 = document.createElement('tr');
+      tr3.className = 'pers-summary-end';
+      const tdRpoType = el('td', `type-cell type-rpo ${getBgClass('rpo', data.categories.rpo, data.total)}`, 'RPO');
+      const tdRpoPct = document.createElement('td');
+      tdRpoPct.className = `percent-cell ${getBgClass('rpo', data.categories.rpo, data.total)}`;
+      tdRpoPct.innerHTML = getPctText(data.categories.rpo, data.total);
+      const tdRpoPlays = el('td', `plays-cell ${getBgClass('rpo', data.categories.rpo, data.total)}`, '');
+      tr3.append(tdRpoType, tdRpoPct, tdRpoPlays);
+      tbody.appendChild(tr3);
+
+      // 各Formationのブロック
+      forms.forEach((form, fIdx) => {
+        const fData = data.formations[form];
+        const fPct = Math.round((fData.total / data.total) * 100);
+        const isLastForm = fIdx === forms.length - 1;
+
+        // Formation Pass行
+        const trForm1 = document.createElement('tr');
+        const tdFormName = document.createElement('td');
+        tdFormName.rowSpan = 3;
+        tdFormName.className = 'formation-name';
+        tdFormName.textContent = form;
+
+        const tdFormPct = document.createElement('td');
+        tdFormPct.rowSpan = 3;
+        tdFormPct.className = 'formation-percent';
+        tdFormPct.innerHTML = `<span style="${fPct >= 70 ? 'color:#e11d48; font-weight:800;' : ''}">${fPct}%</span><br><span class="stat-count">(${fData.total}/${data.total})</span>`;
+
+        const tdFPassType = el('td', `type-cell type-pass ${getBgClass('pass', fData.categories.pass.count, fData.total)}`, 'Pass');
+        const tdFPassPct = document.createElement('td');
+        tdFPassPct.className = `percent-cell ${getBgClass('pass', fData.categories.pass.count, fData.total)}`;
+        tdFPassPct.innerHTML = getPctText(fData.categories.pass.count, fData.total);
+        const tdFPassPlays = document.createElement('td');
+        tdFPassPlays.className = `plays-cell ${getBgClass('pass', fData.categories.pass.count, fData.total)}`;
+        tdFPassPlays.innerHTML = formatPlays(fData.categories.pass.plays);
+
+        trForm1.append(tdFormName, tdFormPct, tdFPassType, tdFPassPct, tdFPassPlays);
+        tbody.appendChild(trForm1);
+
+        // Formation Run行
+        const trForm2 = document.createElement('tr');
+        const tdFRunType = el('td', `type-cell type-run ${getBgClass('run', fData.categories.run.count, fData.total)}`, 'Run');
+        const tdFRunPct = document.createElement('td');
+        tdFRunPct.className = `percent-cell ${getBgClass('run', fData.categories.run.count, fData.total)}`;
+        tdFRunPct.innerHTML = getPctText(fData.categories.run.count, fData.total);
+        const tdFRunPlays = document.createElement('td');
+        tdFRunPlays.className = `plays-cell ${getBgClass('run', fData.categories.run.count, fData.total)}`;
+        tdFRunPlays.innerHTML = formatPlays(fData.categories.run.plays);
+
+        trForm2.append(tdFRunType, tdFRunPct, tdFRunPlays);
+        tbody.appendChild(trForm2);
+
+        // Formation RPO行
+        const trForm3 = document.createElement('tr');
+        if (isLastForm) trForm3.className = 'border-bottom-thick';
+        const tdFRpoType = el('td', `type-cell type-rpo ${getBgClass('rpo', fData.categories.rpo.count, fData.total)}`, 'RPO');
+        const tdFRpoPct = document.createElement('td');
+        tdFRpoPct.className = `percent-cell ${getBgClass('rpo', fData.categories.rpo.count, fData.total)}`;
+        tdFRpoPct.innerHTML = getPctText(fData.categories.rpo.count, fData.total);
+        const tdFRpoPlays = document.createElement('td');
+        tdFRpoPlays.className = `plays-cell ${getBgClass('rpo', fData.categories.rpo.count, fData.total)}`;
+        tdFRpoPlays.innerHTML = formatPlays(fData.categories.rpo.plays);
+
+        trForm3.append(tdFRpoType, tdFRpoPct, tdFRpoPlays);
+        tbody.appendChild(trForm3);
+      });
+
+      table.appendChild(tbody);
+    });
+  }
+
+  function renderPersonnelMatrix(persHeadRow, persTbody, allPersSet, sitStats, totalStat) {
     const sortedPers = Array.from(allPersSet).sort((a, b) => {
       const order = ['11', '10', '12', '12+OL', '21', '22', '13'];
       const ia = order.indexOf(a);
@@ -1136,7 +1313,7 @@
       return a.localeCompare(b);
     });
 
-    persHeadRow.innerHTML = '<th class="th-situation">状況 (D&amp;D)</th><th>Total</th>';
+    persHeadRow.innerHTML = '<th class="th-situation">状況 (D&amp;D)</th><th style="width:70px;">Total</th>';
     sortedPers.forEach((pers) => {
       persHeadRow.appendChild(el('th', '', pers));
     });
@@ -1146,31 +1323,32 @@
 
     persTbody.innerHTML = '';
     const renderPersRow = (label, stat, isTotal = false) => {
-      const isStart = ['1st Down', '2nd & Short (1-3)', '3rd & Short (1-3)', '4th Down'].includes(label);
-      const isMid = ['2nd & Medium (4-6)', '3rd & Medium (4-6)'].includes(label);
-      const isEnd = ['1st Down', '2nd & Long (7+)', '3rd & Long (7+)', '4th Down'].includes(label);
-      const cls = [
-        isTotal ? 'total-row' : '',
-        isStart ? 'down-group-start' : '',
-        isMid ? 'down-group-mid' : '',
-        isEnd ? 'down-group-end' : '',
-      ].filter(Boolean).join(' ');
-      const tr = el('tr', cls);
+      const tr = document.createElement('tr');
+      let downNum = 'total';
+      if (!isTotal) {
+        if (label.startsWith('1st')) downNum = '1';
+        else if (label.startsWith('2nd')) downNum = '2';
+        else if (label.startsWith('3rd')) downNum = '3';
+        else if (label.startsWith('4th')) downNum = '4';
+      }
+      tr.setAttribute('data-down', downNum);
+      if (isTotal) tr.className = 'total-row';
+
       tr.appendChild(el('td', 'td-situation', label));
       tr.appendChild(el('td', '', String(stat.total)));
 
       if (sortedPers.length === 0) {
-        tr.appendChild(el('td', '', '—'));
+        tr.appendChild(el('td', 'empty-cell', '—'));
       } else {
         sortedPers.forEach((pers) => {
           const cnt = stat.pers[pers] || 0;
           const pct = stat.total > 0 ? Math.round((cnt / stat.total) * 100) : 0;
-          const td = el('td', '', cnt > 0 ? `${cnt} (${pct}%)` : '—');
+          const td = document.createElement('td');
           if (cnt > 0) {
-            td.style.fontWeight = '700';
-            if (pct >= 70 && stat.total >= 2) {
-              td.style.background = '#fef3c7';
-            }
+            const isHigh = pct >= 70 && stat.total >= 2;
+            td.innerHTML = `<span class="stat-pct ${isHigh ? 'highlight-red' : ''}">${pct}%</span> <span class="stat-count">(${cnt})</span>`;
+          } else {
+            td.innerHTML = '<span class="empty-cell">—</span>';
           }
           tr.appendChild(td);
         });
@@ -1180,6 +1358,130 @@
 
     SITUATIONS.forEach((s) => renderPersRow(s, sitStats[s]));
     renderPersRow('全プレー合計', totalStat, true);
+  }
+
+  function renderTendency() {
+    const runPassTbody = $('#runPassTable tbody');
+    const persHierarchyTable = $('#personnelHierarchyTable');
+    const persTbody = $('#personnelTable tbody');
+    const persHeadRow = $('#personnelTableHeadRow');
+    if (!runPassTbody) return;
+
+    // 有効なプレー
+    const validPlays = plays.filter((p) => p.down || p.play || p.personnel || p.playType || p.formation);
+
+    const sitStats = {};
+    SITUATIONS.forEach((s) => {
+      sitStats[s] = { total: 0, run: 0, pass: 0, rpo: 0, pers: {} };
+    });
+    const totalStat = { total: 0, run: 0, pass: 0, rpo: 0, pers: {} };
+    const allPersSet = new Set();
+
+    validPlays.forEach((p) => {
+      const sit = getSituationGroup(p);
+      const typeUpper = (p.playType || '').toUpperCase().trim();
+      const playUpper = (p.play || '').toUpperCase().trim();
+      const isRPO = typeUpper === 'RPO' || playUpper.includes('RPO');
+      const isRun = !isRPO && (typeUpper === 'RUN' || typeUpper === 'R');
+      const isPass = !isRPO && (typeUpper === 'PASS' || typeUpper === 'P');
+      const pers = (p.personnel || '').trim();
+
+      if (pers) allPersSet.add(pers);
+
+      if (sit && sitStats[sit]) {
+        sitStats[sit].total++;
+        if (isRun) sitStats[sit].run++;
+        if (isPass) sitStats[sit].pass++;
+        if (isRPO) sitStats[sit].rpo++;
+        if (pers) sitStats[sit].pers[pers] = (sitStats[sit].pers[pers] || 0) + 1;
+      }
+      totalStat.total++;
+      if (isRun) totalStat.run++;
+      if (isPass) totalStat.pass++;
+      if (isRPO) totalStat.rpo++;
+      if (pers) totalStat.pers[pers] = (totalStat.pers[pers] || 0) + 1;
+    });
+
+    // 表1: Down & Distance 傾向分析 (dd.htmlスタイル)
+    runPassTbody.innerHTML = '';
+    const renderRunPassRow = (label, stat, isTotal = false) => {
+      const tr = document.createElement('tr');
+      let downNum = 'total';
+      if (!isTotal) {
+        if (label.startsWith('1st')) downNum = '1';
+        else if (label.startsWith('2nd')) downNum = '2';
+        else if (label.startsWith('3rd')) downNum = '3';
+        else if (label.startsWith('4th')) downNum = '4';
+      }
+      tr.setAttribute('data-down', downNum);
+      if (isTotal) tr.className = 'total-row';
+
+      const tdSit = el('td', 'td-situation', label);
+      const tdTotal = el('td', '', String(stat.total));
+      tr.append(tdSit, tdTotal);
+
+      const runPct = stat.total > 0 ? Math.round((stat.run / stat.total) * 100) : 0;
+      const passPct = stat.total > 0 ? Math.round((stat.pass / stat.total) * 100) : 0;
+      const rpoPct = stat.total > 0 ? Math.round((stat.rpo / stat.total) * 100) : 0;
+
+      const formatCell = (count, pct) => {
+        const td = document.createElement('td');
+        if (stat.total === 0) {
+          td.innerHTML = '<span class="empty-cell">—</span>';
+        } else {
+          const isHigh = pct >= 70 && count >= 2;
+          const highClass = isHigh ? 'highlight-red' : '';
+          td.innerHTML = `<span class="stat-pct ${highClass}">${pct}%</span> <span class="stat-count">(${count}/${stat.total})</span>`;
+        }
+        return td;
+      };
+
+      tr.append(
+        formatCell(stat.run, runPct),
+        formatCell(stat.pass, passPct),
+        formatCell(stat.rpo, rpoPct)
+      );
+
+      // 比率バー (Run: 赤, Pass: 青, RPO: オレンジ)
+      const tdBar = el('td', 'tendency-bar-cell');
+      if (stat.total > 0 && (stat.run > 0 || stat.pass > 0 || stat.rpo > 0)) {
+        const barWrap = el('div', 'tendency-bar');
+        if (stat.run > 0) {
+          const runPart = el('div', 'tendency-bar-run');
+          runPart.style.width = `${runPct}%`;
+          barWrap.appendChild(runPart);
+        }
+        if (stat.pass > 0) {
+          const passPart = el('div', 'tendency-bar-pass');
+          passPart.style.width = `${passPct}%`;
+          barWrap.appendChild(passPart);
+        }
+        if (stat.rpo > 0) {
+          const rpoPart = el('div', 'tendency-bar-rpo');
+          rpoPart.style.width = `${rpoPct}%`;
+          barWrap.appendChild(rpoPart);
+        }
+        tdBar.appendChild(barWrap);
+      } else {
+        tdBar.innerHTML = '<span class="empty-cell">—</span>';
+      }
+      tr.appendChild(tdBar);
+
+      runPassTbody.appendChild(tr);
+    };
+
+    SITUATIONS.forEach((s) => renderRunPassRow(s, sitStats[s]));
+    renderRunPassRow('全プレー合計', totalStat, true);
+
+    // 表2: Personnel 階層表 (personnel.html スタイル)
+    if (persHierarchyTable) {
+      renderPersonnelHierarchy(persHierarchyTable, validPlays);
+    }
+
+    // 表3: Personnel 状況別マトリクス
+    if (persHeadRow && persTbody) {
+      renderPersonnelMatrix(persHeadRow, persTbody, allPersSet, sitStats, totalStat);
+    }
   }
 
   function onPlays(list) {

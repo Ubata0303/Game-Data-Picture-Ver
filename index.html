@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Football Data Live</title>
-  <link rel="stylesheet" href="style.css?v=36">
+  <link rel="stylesheet" href="style.css?v=37">
 </head>
 <body>
   <header class="topbar">
@@ -96,18 +96,17 @@
       <div id="tendencyView" class="tendency-view hidden">
         <div class="tendency-card">
           <div class="tendency-card-head">
-            <h3>🏃‍♂️ ラン・パス比率（Down &amp; Distance別）</h3>
+            <h3>🏃‍♂️ Down &amp; Distance 傾向分析 (Play Type別)</h3>
           </div>
           <div class="table-wrap">
-            <table class="tendency-table" id="runPassTable">
+            <table class="tendency-table excel-style" id="runPassTable">
               <thead>
                 <tr>
-                  <th class="th-situation">状況 (D&amp;D)</th>
-                  <th>Total</th>
+                  <th class="th-situation">状況 (Down &amp; Dist)</th>
+                  <th style="width: 70px;">Total</th>
                   <th>Run</th>
-                  <th>Run %</th>
                   <th>Pass</th>
-                  <th>Pass %</th>
+                  <th>RPO</th>
                   <th class="tendency-bar-cell">比率</th>
                 </tr>
               </thead>
@@ -118,14 +117,47 @@
 
         <div class="tendency-card">
           <div class="tendency-card-head">
-            <h3>👥 パーソナル比率（Down &amp; Distance別）</h3>
+            <h3>👥 Personnel 傾向分析 (Formation &amp; Favorite Plays)</h3>
           </div>
           <div class="table-wrap">
-            <table class="tendency-table" id="personnelTable">
+            <table class="tendency-table excel-style personnel-hierarchical-table" id="personnelHierarchyTable">
+              <colgroup>
+                <col style="width: 75px;">
+                <col style="width: 75px;">
+                <col style="width: 75px;">
+                <col style="width: 140px;">
+                <col style="width: 95px;">
+                <col style="width: 60px;">
+                <col style="width: 70px;">
+                <col style="width: auto;">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Per</th>
+                  <th>TE BP</th>
+                  <th>Other</th>
+                  <th>Formation</th>
+                  <th>割合 (回数)</th>
+                  <th>Type</th>
+                  <th>%</th>
+                  <th>Favorite Plays</th>
+                </tr>
+              </thead>
+              <!-- tbodys dynamically created per personnel -->
+            </table>
+          </div>
+        </div>
+
+        <div class="tendency-card">
+          <div class="tendency-card-head">
+            <h3>📊 Personnel × 状況別マトリクス (Down &amp; Distance別)</h3>
+          </div>
+          <div class="table-wrap">
+            <table class="tendency-table excel-style" id="personnelTable">
               <thead>
                 <tr id="personnelTableHeadRow">
                   <th class="th-situation">状況 (D&amp;D)</th>
-                  <th>Total</th>
+                  <th style="width: 70px;">Total</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -242,8 +274,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <!-- MQTT.js (Fallback) -->
   <script src="https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js"></script>
-  <script src="config.js?v=36"></script>
-  <script src="store.js?v=36"></script>
-  <script src="app.js?v=36"></script>
+  <script src="config.js?v=37"></script>
+  <script src="store.js?v=37"></script>
+  <script src="app.js?v=37"></script>
 </body>
 </html>

@@ -11,6 +11,11 @@
   --ok: #1b8a3a;
   --warn: #c77800;
   --flash: #fff3b0;
+  --row-1st: #bed8ed; /* Pastel Blue */
+  --row-2nd: #fbe5d6; /* Pastel Orange */
+  --row-3rd: #d7efd4; /* Pastel Green */
+  --row-4th: #ecd3ed; /* Pastel Pink/Purple */
+  --border-dark: #333333;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -431,8 +436,23 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   color: #ffffff !important;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
+/* RPO: オレンジ */
+.btn-rpo {
+  background: #fffbeb;
+  border: 2px solid #f59e0b;
+  color: #b45309;
+}
+.btn-rpo:hover {
+  background: #fef3c7;
+}
+.btn-rpo.on {
+  background: #f59e0b !important;
+  border-color: #d97706 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+}
 
-/* テーブル内の Run / Pass バッジ */
+/* テーブル内の Run / Pass / RPO バッジ */
 .badge-run {
   display: inline-block;
   background: #fee2e2;
@@ -448,6 +468,21 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   background: #eff6ff;
   color: #1d4ed8;
   border: 1px solid #93c5fd;
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+}
+.badge-rpo {
+  display: inline-block;
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+}
   font-weight: 700;
   font-size: 0.78rem;
   padding: 0.15rem 0.55rem;
@@ -498,108 +533,92 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   background: #ffffff;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  padding: 1.2rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
 }
 .tendency-card-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.9rem;
 }
 .tendency-card-head h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  color: #1e293b;
+  font-weight: 800;
 }
 .tendency-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
 }
 .tendency-table th, .tendency-table td {
   padding: 0.55rem 0.65rem;
-  border: 1px solid #e2e8f0;
   text-align: center;
 }
-.tendency-table th {
-  background: #f8fafc;
-  color: var(--fg);
-  font-weight: 700;
-}
-.tendency-table th.th-situation {
-  text-align: left;
-  min-width: 130px;
-}
-.tendency-table td.td-situation {
-  text-align: left;
-  font-weight: 700;
-  background: #fafafa;
-}
-/* ---------- ヘッダー（タイトル行）の四方太枠 ---------- */
-.tendency-table thead tr th {
-  border-top: 2.5px solid #334155 !important;
-  border-bottom: 2.5px solid #334155 !important;
-}
-.tendency-table thead tr th:first-child {
-  border-left: 2.5px solid #334155 !important;
-}
-.tendency-table thead tr th:last-child {
-  border-right: 2.5px solid #334155 !important;
-}
 
-/* ---------- 各Downグループ & 合計の四方太枠 ---------- */
-.tendency-table tr.down-group-start td {
-  border-top: 2.5px solid #334155 !important;
+/* ---------- Excel風の引き締まったダーク罫線 & パステル背景 (dd.htmlスタイル) ---------- */
+.excel-style {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid var(--border-dark, #333333);
 }
-.tendency-table tr.down-group-end td {
-  border-bottom: 2.5px solid #334155 !important;
+.excel-style th, .excel-style td {
+  border: 1px solid var(--border-dark, #333333);
+  padding: 0.55rem 0.65rem;
+  vertical-align: middle;
 }
-.tendency-table tr.down-group-start td:first-child,
-.tendency-table tr.down-group-mid td:first-child,
-.tendency-table tr.down-group-end td:first-child {
-  border-left: 2.5px solid #334155 !important;
+.excel-style thead th {
+  background: #ffffff;
+  color: #1e293b;
+  font-weight: 700;
+  font-size: 0.95rem;
+  border-bottom: 2px solid var(--border-dark, #333333);
 }
-.tendency-table tr.down-group-start td:last-child,
-.tendency-table tr.down-group-mid td:last-child,
-.tendency-table tr.down-group-end td:last-child {
-  border-right: 2.5px solid #334155 !important;
+.excel-style th.th-situation, .excel-style td.td-situation {
+  text-align: left;
+  font-weight: 700;
+  min-width: 150px;
 }
+.excel-style tr[data-down="1"] td { background-color: var(--row-1st, #bed8ed); }
+.excel-style tr[data-down="2"] td { background-color: var(--row-2nd, #fbe5d6); }
+.excel-style tr[data-down="3"] td { background-color: var(--row-3rd, #d7efd4); }
+.excel-style tr[data-down="4"] td { background-color: var(--row-4th, #ecd3ed); }
+.excel-style tr[data-down="total"] td { background-color: #f1f5f9; font-weight: 800; }
 
-.tendency-table tr.total-row {
-  background: #f1f5f9;
+.stat-pct {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.stat-pct.highlight-red {
+  color: #e11d48;
   font-weight: 800;
 }
-.tendency-table tr.total-row td {
-  border-top: 2.5px solid #334155 !important;
-  border-bottom: 2.5px solid #334155 !important;
+.stat-count {
+  font-size: 0.78em;
+  color: #475569;
+  font-weight: normal;
+  margin-left: 3px;
 }
-.tendency-table tr.total-row td:first-child {
-  border-left: 2.5px solid #334155 !important;
+.empty-cell {
+  color: #94a3b8;
 }
-.tendency-table tr.total-row td:last-child {
-  border-right: 2.5px solid #334155 !important;
-}
-.tendency-table .val-run {
-  color: #dc2626;
-  font-weight: 700;
-}
-.tendency-table .val-pass {
-  color: #2563eb;
-  font-weight: 700;
-}
+
 .tendency-bar-cell {
-  min-width: 120px;
-  width: 140px;
+  min-width: 130px;
+  width: 150px;
 }
 .tendency-bar {
   display: flex;
-  height: 18px;
+  height: 20px;
   border-radius: 4px;
   overflow: hidden;
   background: #e2e8f0;
+  border: 1px solid #cbd5e1;
 }
 .tendency-bar-run {
   background: #ef4444;
@@ -611,10 +630,113 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   height: 100%;
   transition: width 0.3s ease;
 }
+.tendency-bar-rpo {
+  background: #f59e0b;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+/* ---------- Personnel 階層表 (personnel.html スタイル) ---------- */
+.personnel-hierarchical-table {
+  width: 100%;
+  table-layout: fixed;
+  border: 2px solid var(--border-dark, #333333);
+}
+.personnel-hierarchical-table thead tr th {
+  background-color: #94a3b8;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  border: 1px solid var(--border-dark, #333333);
+  padding: 8px 6px;
+  text-align: center;
+}
+.personnel-cell {
+  background-color: #94a3b8;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.45rem;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid var(--border-dark, #333333);
+}
+.input-cell {
+  padding: 0 !important;
+  vertical-align: top;
+  border: 1px solid var(--border-dark, #333333);
+}
+.editable-field {
+  width: 100%;
+  height: 100%;
+  min-height: 48px;
+  border: none;
+  background: transparent;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  color: #1e293b;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+  display: block;
+  font-family: inherit;
+  line-height: 1.25;
+}
+.editable-field:focus {
+  background: #f8fafc;
+}
+.formation-name {
+  font-weight: 700;
+  text-align: left;
+  padding-left: 8px;
+  color: #0f172a;
+}
+.formation-percent {
+  text-align: center;
+  font-weight: 600;
+}
+.type-cell {
+  font-weight: 700;
+  text-align: center;
+}
+.type-pass { color: #2563eb; }
+.type-run { color: #dc2626; }
+.type-rpo { color: #d97706; }
+.percent-cell {
+  text-align: right;
+  font-weight: 700;
+  padding-right: 8px;
+}
+.plays-cell {
+  text-align: left;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  padding: 4px 8px;
+}
+.play-item {
+  display: inline-block;
+  margin-right: 8px;
+}
+.play-count {
+  color: #64748b;
+  font-size: 0.85em;
+}
+.bg-pass-high { background-color: #bae6fd !important; }
+.bg-run-high { background-color: #fca5a5 !important; }
+.bg-rpo-high { background-color: #fed7aa !important; }
+.border-bottom-thick {
+  border-bottom: 2.5px solid var(--border-dark, #333333) !important;
+}
+.pers-summary-cell {
+  background-color: #f8fafc;
+}
+.pers-summary-end {
+  border-bottom: 2px solid #64748b !important;
+}
+
 .tendency-clickable {
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: opacity 0.15s ease;
 }
-.tendency-clickable:hover td {
-  background: #f0fdf4 !important;
+.tendency-clickable:hover {
+  opacity: 0.85;
 }
