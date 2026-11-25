@@ -1161,6 +1161,11 @@
       const tdPer = document.createElement('td');
       tdPer.rowSpan = personnelRowspan;
       tdPer.className = 'personnel-cell';
+      if (per.length >= 6) {
+        tdPer.classList.add('pers-cell-xl');
+      } else if (per.length >= 4) {
+        tdPer.classList.add('pers-cell-long');
+      }
       tdPer.textContent = per;
 
       const tdTebp = document.createElement('td');

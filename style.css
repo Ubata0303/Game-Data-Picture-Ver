@@ -628,10 +628,21 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   background-color: #94a3b8;
   color: #ffffff;
   font-weight: 800;
-  font-size: 1.45rem;
+  font-size: 1.35rem;
   text-align: center;
   vertical-align: middle;
   border: 1px solid var(--border-dark, #333333);
+  padding: 4px 2px !important;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.personnel-cell.pers-cell-long {
+  font-size: 1.05rem;
+  letter-spacing: -0.3px;
+}
+.personnel-cell.pers-cell-xl {
+  font-size: 0.9rem;
+  letter-spacing: -0.5px;
 }
 .input-cell {
   padding: 0 !important;
