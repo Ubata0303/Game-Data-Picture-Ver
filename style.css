@@ -630,7 +630,7 @@ body.view-only .draw-btn-empty { display: inline-flex; }
 /* ---------- Personnel 階層表 (personnel.html スタイル) ---------- */
 .personnel-hierarchical-table {
   width: 100%;
-  min-width: 920px;
+  min-width: 965px;
   table-layout: fixed;
   border-collapse: collapse !important;
   border: 2px solid var(--border-dark, #333333);
@@ -693,8 +693,6 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   text-align: left;
   padding-left: 8px;
   color: #0f172a;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .formation-percent {
