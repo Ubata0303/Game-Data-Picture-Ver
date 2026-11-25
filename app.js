@@ -1295,7 +1295,11 @@
         else if (label.startsWith('4th')) downNum = '4';
       }
       tr.setAttribute('data-down', downNum);
-      if (isTotal) tr.className = 'total-row';
+      if (isTotal) {
+        tr.className = 'total-row';
+      } else if (label === '1st Down' || label.includes('Long') || label.startsWith('4th')) {
+        tr.classList.add('down-group-end');
+      }
 
       tr.appendChild(el('td', 'td-situation', label));
       tr.appendChild(el('td', '', String(stat.total)));
@@ -1315,6 +1319,11 @@
             const passCnt = pInfo.pass;
             const runPct = cnt > 0 ? Math.round((runCnt / cnt) * 100) : 0;
             const passPct = cnt > 0 ? Math.round((passCnt / cnt) * 100) : 0;
+
+            if (cnt >= 2) {
+              if (runPct >= 70) td.className = 'bg-run-high';
+              else if (passPct >= 70) td.className = 'bg-pass-high';
+            }
 
             td.innerHTML = `
               <div style="font-weight:700; font-size:0.95rem; line-height:1.2;">
@@ -1401,7 +1410,11 @@
         else if (label.startsWith('4th')) downNum = '4';
       }
       tr.setAttribute('data-down', downNum);
-      if (isTotal) tr.className = 'total-row';
+      if (isTotal) {
+        tr.className = 'total-row';
+      } else if (label === '1st Down' || label.includes('Long') || label.startsWith('4th')) {
+        tr.classList.add('down-group-end');
+      }
 
       const tdSit = el('td', 'td-situation', label);
       const tdTotal = el('td', '', String(stat.total));

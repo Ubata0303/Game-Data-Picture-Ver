@@ -564,6 +564,9 @@ body.view-only .draw-btn-empty { display: inline-flex; }
 .excel-style tr[data-down="3"] td { background-color: var(--row-3rd, #d7efd4); }
 .excel-style tr[data-down="4"] td { background-color: var(--row-4th, #ecd3ed); }
 .excel-style tr[data-down="total"] td { background-color: #f1f5f9; font-weight: 800; }
+.excel-style tr.down-group-end td {
+  border-bottom: 2px solid var(--border-dark, #333333) !important;
+}
 
 .stat-pct {
   font-weight: 700;
@@ -714,12 +717,23 @@ body.view-only .draw-btn-empty { display: inline-flex; }
   min-width: 120px;
 }
 
-/* ---------- Personnel マトリクス表: セルはデフォルト白（ハイライトなしで見やすさ重視） ---------- */
+/* ---------- Personnel マトリクス表: デフォルト白、70%以上のハイライトのみ強調 ---------- */
 #personnelTable tbody td {
-  background-color: #ffffff !important;
+  background-color: #ffffff;
+}
+#personnelTable tbody td.bg-run-high,
+#personnelTable tr[data-down] td.bg-run-high,
+#personnelTable tr.total-row td.bg-run-high {
+  background-color: #fca5a5 !important;
+}
+#personnelTable tbody td.bg-pass-high,
+#personnelTable tr[data-down] td.bg-pass-high,
+#personnelTable tr.total-row td.bg-pass-high {
+  background-color: #bae6fd !important;
 }
 #personnelTable tr[data-down="1"] td.td-situation { background-color: var(--row-1st, #bed8ed) !important; }
 #personnelTable tr[data-down="2"] td.td-situation { background-color: var(--row-2nd, #fbe5d6) !important; }
 #personnelTable tr[data-down="3"] td.td-situation { background-color: var(--row-3rd, #d7efd4) !important; }
 #personnelTable tr[data-down="4"] td.td-situation { background-color: var(--row-4th, #ecd3ed) !important; }
-#personnelTable tr[data-down="total"] td { background-color: #f1f5f9 !important; font-weight: 800; }
+#personnelTable tr[data-down="total"] td.td-situation { background-color: #e2e8f0 !important; font-weight: 800; }
+#personnelTable tr[data-down="total"] td { font-weight: 800; }
