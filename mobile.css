@@ -790,41 +790,31 @@ html, body {
   white-space: nowrap;
   padding-left: 6px;
 }
-.stat-share {
-  font-weight: 700;
-  color: #334155;
-  background-color: #ffffff;
-  vertical-align: middle;
+.formation-percent {
+  text-align: center;
+  font-weight: 600;
 }
 .type-cell {
-  font-weight: 800;
-  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  width: 55px;
 }
-.type-run {
-  background-color: #fee2e2;
-  color: #b91c1c;
-}
-.type-pass {
-  background-color: #e0f2fe;
-  color: #0369a1;
-}
-.pct-cell {
-  font-weight: 800;
-  font-size: 0.85rem;
-  background-color: #ffffff;
-}
-.pct-cell.highlight-red {
-  color: #e11d48;
+.type-pass { color: #2563eb; }
+.type-run { color: #dc2626; }
+.percent-cell {
+  text-align: right;
+  font-weight: 700;
+  padding-right: 8px;
 }
 .plays-cell {
-  text-align: left !important;
-  padding: 4px 8px !important;
-  font-size: 0.8rem;
-  background-color: #ffffff;
+  text-align: left;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  padding: 4px 8px;
 }
 .play-item {
   display: inline-block;
-  margin-right: 6px;
+  margin-right: 8px;
 }
 .play-count {
   color: #64748b;
@@ -832,6 +822,9 @@ html, body {
 }
 .bg-pass-high { background-color: #bae6fd !important; }
 .bg-run-high { background-color: #fca5a5 !important; }
+.border-bottom-thick {
+  border-bottom: 2.5px solid var(--border-dark, #333333) !important;
+}
 .pers-summary-cell {
   background-color: #f8fafc;
 }

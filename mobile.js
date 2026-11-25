@@ -791,20 +791,22 @@
     };
 
     const getBgClass = (type, count, total) => {
-      if (total === 0 || count === 0) return '';
-      const pct = Math.round((count / total) * 100);
-      if (pct >= 70 && count >= 2) {
-        return type === 'run' ? 'bg-run-high' : 'bg-pass-high';
+      if (total === 0 || count < 2) return '';
+      const pct = (count / total) * 100;
+      if (pct >= 70) {
+        if (type === 'pass') return 'bg-pass-high';
+        if (type === 'run') return 'bg-run-high';
       }
       return '';
     };
 
     const getPctText = (count, total) => {
-      if (total === 0) return '<span style="color:#94a3b8;">—</span>';
+      if (total === 0) return '<span style="color:#94a3b8;">0%</span>';
       const pct = Math.round((count / total) * 100);
-      const isHigh = pct >= 70 && count >= 2;
-      const highlight = isHigh ? 'highlight-red' : '';
-      return `<span class="${highlight}">${pct}%</span>`;
+      if (pct >= 70 && count >= 2) {
+        return `<span style="font-weight: 800; color: #1e293b;">${pct}%</span>`;
+      }
+      return `${pct}%`;
     };
 
     const formatPlays = (playsObj) => {
@@ -818,11 +820,13 @@
     persKeys.forEach((per) => {
       const data = persStats[per];
       const forms = Object.keys(data.formations).sort((a, b) => data.formations[b].total - data.formations[a].total);
+      // 各Formation 2行（Pass & Run）+ 全体合計 2行
       const personnelRowspan = 2 + (forms.length * 2);
 
       const tbody = document.createElement('tbody');
       tbody.className = 'personnel-tbody';
 
+      // 1行目: Personnel Badge, Notes, 合計(2行結合), Pass行
       const tr1 = document.createElement('tr');
       tr1.style.borderTop = '2.5px solid #333333';
 
@@ -856,89 +860,76 @@
       taOther.oninput = (e) => saveNote(per + '_other', e.target.value);
       tdOther.appendChild(taOther);
 
-      const tdTotForm = document.createElement('td');
-      tdTotForm.rowSpan = 2;
-      tdTotForm.className = 'formation-name pers-summary-cell';
-      tdTotForm.innerHTML = `<div style="font-weight:800; color:#1e293b;">全体合計</div><span style="font-size:0.75rem; color:#64748b;">(${data.total}/${totalPersPlays})</span>`;
+      const tdSummaryForm = document.createElement('td');
+      tdSummaryForm.rowSpan = 2;
+      tdSummaryForm.className = 'pers-summary-cell';
+      tdSummaryForm.style.fontWeight = '700';
+      tdSummaryForm.style.textAlign = 'center';
+      tdSummaryForm.innerHTML = `全体合計<br><span class="stat-count">(${data.total}/${totalPersPlays})</span>`;
 
-      const tdTotShare = document.createElement('td');
-      tdTotShare.rowSpan = 2;
-      tdTotShare.className = 'stat-share pers-summary-cell';
-      const overallPct = totalPersPlays > 0 ? Math.round((data.total / totalPersPlays) * 100) : 0;
-      tdTotShare.innerHTML = `<strong>${overallPct}%</strong>`;
+      const tdSummaryRatio = document.createElement('td');
+      tdSummaryRatio.rowSpan = 2;
+      tdSummaryRatio.className = 'pers-summary-cell';
+      tdSummaryRatio.style.textAlign = 'center';
+      tdSummaryRatio.style.fontWeight = '700';
+      tdSummaryRatio.innerHTML = `${Math.round((data.total / totalPersPlays) * 100)}%`;
 
-      const tdTotPassType = document.createElement('td');
-      tdTotPassType.className = 'type-cell type-pass';
-      tdTotPassType.textContent = 'Pass';
+      const tdPassType = el('td', `type-cell type-pass ${getBgClass('pass', data.categories.pass, data.total)}`, 'Pass');
+      const tdPassPct = document.createElement('td');
+      tdPassPct.className = `percent-cell ${getBgClass('pass', data.categories.pass, data.total)}`;
+      tdPassPct.innerHTML = getPctText(data.categories.pass, data.total);
+      const tdPassPlays = el('td', `plays-cell ${getBgClass('pass', data.categories.pass, data.total)}`, '');
 
-      const tdTotPassPct = document.createElement('td');
-      tdTotPassPct.className = 'pct-cell';
-      tdTotPassPct.innerHTML = getPctText(data.categories.pass, data.total);
-
-      const tdTotPassPlays = document.createElement('td');
-      tdTotPassPlays.className = `plays-cell ${getBgClass('pass', data.categories.pass, data.total)}`;
-      tdTotPassPlays.innerHTML = '';
-
-      tr1.append(tdPer, tdTebp, tdOther, tdTotForm, tdTotShare, tdTotPassType, tdTotPassPct, tdTotPassPlays);
+      tr1.append(tdPer, tdTebp, tdOther, tdSummaryForm, tdSummaryRatio, tdPassType, tdPassPct, tdPassPlays);
       tbody.appendChild(tr1);
 
-      const trTotRun = document.createElement('tr');
-      trTotRun.className = 'pers-summary-end';
+      // 2行目: Run全体
+      const tr2 = document.createElement('tr');
+      tr2.className = 'pers-summary-end';
+      const tdRunType = el('td', `type-cell type-run ${getBgClass('run', data.categories.run, data.total)}`, 'Run');
+      const tdRunPct = document.createElement('td');
+      tdRunPct.className = `percent-cell ${getBgClass('run', data.categories.run, data.total)}`;
+      tdRunPct.innerHTML = getPctText(data.categories.run, data.total);
+      const tdRunPlays = el('td', `plays-cell ${getBgClass('run', data.categories.run, data.total)}`, '');
+      tr2.append(tdRunType, tdRunPct, tdRunPlays);
+      tbody.appendChild(tr2);
 
-      const tdTotRunType = document.createElement('td');
-      tdTotRunType.className = 'type-cell type-run';
-      tdTotRunType.textContent = 'Run';
+      // 各Formationのブロック
+      forms.forEach((form, fIdx) => {
+        const fData = data.formations[form];
+        const fPct = Math.round((fData.total / data.total) * 100);
+        const isLastForm = fIdx === forms.length - 1;
 
-      const tdTotRunPct = document.createElement('td');
-      tdTotRunPct.className = 'pct-cell';
-      tdTotRunPct.innerHTML = getPctText(data.categories.run, data.total);
-
-      const tdTotRunPlays = document.createElement('td');
-      tdTotRunPlays.className = `plays-cell ${getBgClass('run', data.categories.run, data.total)}`;
-      tdTotRunPlays.innerHTML = '';
-
-      trTotRun.append(tdTotRunType, tdTotRunPct, tdTotRunPlays);
-      tbody.appendChild(trTotRun);
-
-      forms.forEach((formName) => {
-        const fData = data.formations[formName];
-        const formSharePct = data.total > 0 ? Math.round((fData.total / data.total) * 100) : 0;
-
+        // Formation Pass行
         const trForm1 = document.createElement('tr');
-        const tdFName = document.createElement('td');
-        tdFName.rowSpan = 2;
-        tdFName.className = 'formation-name';
-        tdFName.textContent = formName;
+        const tdFormName = document.createElement('td');
+        tdFormName.rowSpan = 2;
+        tdFormName.className = 'formation-name';
+        tdFormName.textContent = form;
 
-        const tdFShare = document.createElement('td');
-        tdFShare.rowSpan = 2;
-        tdFShare.className = 'stat-share';
-        tdFShare.innerHTML = `<strong>${formSharePct}%</strong> <span style="font-size:0.75rem; color:#64748b;">(${fData.total}/${data.total})</span>`;
+        const tdFormPct = document.createElement('td');
+        tdFormPct.rowSpan = 2;
+        tdFormPct.className = 'formation-percent';
+        tdFormPct.innerHTML = `<span style="${fPct >= 70 ? 'font-weight:800; color:#1e293b;' : ''}">${fPct}%</span><br><span class="stat-count">(${fData.total}/${data.total})</span>`;
 
-        const tdFPassType = document.createElement('td');
-        tdFPassType.className = 'type-cell type-pass';
-        tdFPassType.textContent = 'Pass';
-
+        const tdFPassType = el('td', `type-cell type-pass ${getBgClass('pass', fData.categories.pass.count, fData.total)}`, 'Pass');
         const tdFPassPct = document.createElement('td');
-        tdFPassPct.className = 'pct-cell';
+        tdFPassPct.className = `percent-cell ${getBgClass('pass', fData.categories.pass.count, fData.total)}`;
         tdFPassPct.innerHTML = getPctText(fData.categories.pass.count, fData.total);
-
         const tdFPassPlays = document.createElement('td');
         tdFPassPlays.className = `plays-cell ${getBgClass('pass', fData.categories.pass.count, fData.total)}`;
         tdFPassPlays.innerHTML = formatPlays(fData.categories.pass.plays);
 
-        trForm1.append(tdFName, tdFShare, tdFPassType, tdFPassPct, tdFPassPlays);
+        trForm1.append(tdFormName, tdFormPct, tdFPassType, tdFPassPct, tdFPassPlays);
         tbody.appendChild(trForm1);
 
+        // Formation Run行
         const trForm2 = document.createElement('tr');
-        const tdFRunType = document.createElement('td');
-        tdFRunType.className = 'type-cell type-run';
-        tdFRunType.textContent = 'Run';
-
+        if (isLastForm) trForm2.className = 'border-bottom-thick';
+        const tdFRunType = el('td', `type-cell type-run ${getBgClass('run', fData.categories.run.count, fData.total)}`, 'Run');
         const tdFRunPct = document.createElement('td');
-        tdFRunPct.className = 'pct-cell';
+        tdFRunPct.className = `percent-cell ${getBgClass('run', fData.categories.run.count, fData.total)}`;
         tdFRunPct.innerHTML = getPctText(fData.categories.run.count, fData.total);
-
         const tdFRunPlays = document.createElement('td');
         tdFRunPlays.className = `plays-cell ${getBgClass('run', fData.categories.run.count, fData.total)}`;
         tdFRunPlays.innerHTML = formatPlays(fData.categories.run.plays);
