@@ -978,6 +978,7 @@
     $('#tabTendency')?.classList.toggle('active', tab === 'tendency');
     $('#playListView')?.classList.toggle('hidden', tab !== 'playList');
     $('#tendencyView')?.classList.toggle('hidden', tab !== 'tendency');
+    $('#filterBar')?.classList.toggle('hidden', !isViewOnly || tab !== 'playList');
     if (tab === 'tendency') {
       renderTendency();
     }
@@ -1272,13 +1273,10 @@
 
   function renderPersonnelMatrix(persHeadRow, persTbody, allPersSet, sitStats, totalStat) {
     const sortedPers = Array.from(allPersSet).sort((a, b) => {
-      const order = ['11', '10', '12', '12+OL', '21', '22', '13'];
-      const ia = order.indexOf(a);
-      const ib = order.indexOf(b);
-      if (ia !== -1 && ib !== -1) return ia - ib;
-      if (ia !== -1) return -1;
-      if (ib !== -1) return 1;
-      return a.localeCompare(b);
+      const cntA = (totalStat.pers[a] && totalStat.pers[a].total) || 0;
+      const cntB = (totalStat.pers[b] && totalStat.pers[b].total) || 0;
+      if (cntB !== cntA) return cntB - cntA; // 全プレー合計の多い順（使用頻度順）
+      return a.localeCompare(b, undefined, { numeric: true });
     });
 
     persHeadRow.innerHTML = '<th class="th-situation">状況 (D&amp;D)</th><th style="width:70px;">Total</th>';
@@ -1650,7 +1648,7 @@
       const gname = games.find((g) => g.id === currentGameId)?.name || '';
       $('#gameTitle').textContent = gname + (isViewOnly ? '（閲覧用）' : '');
       $('#viewBanner').classList.toggle('hidden', !isViewOnly);
-      $('#filterBar').classList.toggle('hidden', !isViewOnly);
+      $('#filterBar').classList.toggle('hidden', !isViewOnly || activeTab !== 'playList');
       unsubPlays = store.subscribePlays(currentGameId, onPlays);
     } else {
       isViewOnly = false;
