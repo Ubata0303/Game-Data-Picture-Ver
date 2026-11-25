@@ -725,7 +725,7 @@ html, body {
 
 /* Personnel 階層表 */
 .personnel-hierarchical-table {
-  min-width: 780px;
+  min-width: 920px;
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse !important;
@@ -787,6 +787,10 @@ html, body {
   background-color: #ffffff;
   vertical-align: middle;
   font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: 6px;
 }
 .stat-share {
   font-weight: 700;
