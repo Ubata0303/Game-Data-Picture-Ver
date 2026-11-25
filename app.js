@@ -1304,14 +1304,33 @@
         tr.appendChild(el('td', 'empty-cell', '—'));
       } else {
         sortedPers.forEach((pers) => {
-          const cnt = stat.pers[pers] || 0;
-          const pct = stat.total > 0 ? Math.round((cnt / stat.total) * 100) : 0;
+          const pInfo = stat.pers[pers];
           const td = document.createElement('td');
-          if (cnt > 0) {
-            const isHigh = pct >= 70 && stat.total >= 2;
-            td.innerHTML = `<span class="stat-pct ${isHigh ? 'highlight-red' : ''}">${pct}%</span> <span class="stat-count">(${cnt})</span>`;
-          } else {
+          if (!pInfo || pInfo.total === 0) {
             td.innerHTML = '<span class="empty-cell">—</span>';
+          } else {
+            const cnt = pInfo.total;
+            const sitPct = stat.total > 0 ? Math.round((cnt / stat.total) * 100) : 0;
+            const runCnt = pInfo.run;
+            const passCnt = pInfo.pass;
+            const runPct = cnt > 0 ? Math.round((runCnt / cnt) * 100) : 0;
+            const passPct = cnt > 0 ? Math.round((passCnt / cnt) * 100) : 0;
+
+            if (cnt >= 2) {
+              if (runPct >= 70) td.className = 'bg-run-high';
+              else if (passPct >= 70) td.className = 'bg-pass-high';
+            }
+
+            td.innerHTML = `
+              <div style="font-weight:700; font-size:0.95rem; line-height:1.2;">
+                ${cnt}回 <span class="stat-count">(${sitPct}%)</span>
+              </div>
+              <div style="font-size:0.8rem; margin-top:3px; line-height:1.2; white-space:nowrap;">
+                <span style="color:#b91c1c; font-weight:700;">R ${runCnt}</span> <span style="font-size:0.75rem; color:#475569;">(${runPct}%)</span>
+                <span style="color:#cbd5e1; margin:0 2px;">/</span>
+                <span style="color:#1d4ed8; font-weight:700;">P ${passCnt}</span> <span style="font-size:0.75rem; color:#475569;">(${passPct}%)</span>
+              </div>
+            `;
           }
           tr.appendChild(td);
         });
@@ -1347,18 +1366,32 @@
       const isPass = typeUpper === 'PASS' || typeUpper === 'P';
       const pers = (p.personnel || '').trim();
 
-      if (pers) allPersSet.add(pers);
+      if (pers) {
+        allPersSet.add(pers);
+        if (sit && sitStats[sit]) {
+          if (!sitStats[sit].pers[pers]) {
+            sitStats[sit].pers[pers] = { total: 0, run: 0, pass: 0 };
+          }
+          sitStats[sit].pers[pers].total++;
+          if (isRun) sitStats[sit].pers[pers].run++;
+          if (isPass) sitStats[sit].pers[pers].pass++;
+        }
+        if (!totalStat.pers[pers]) {
+          totalStat.pers[pers] = { total: 0, run: 0, pass: 0 };
+        }
+        totalStat.pers[pers].total++;
+        if (isRun) totalStat.pers[pers].run++;
+        if (isPass) totalStat.pers[pers].pass++;
+      }
 
       if (sit && sitStats[sit]) {
         sitStats[sit].total++;
         if (isRun) sitStats[sit].run++;
         if (isPass) sitStats[sit].pass++;
-        if (pers) sitStats[sit].pers[pers] = (sitStats[sit].pers[pers] || 0) + 1;
       }
       totalStat.total++;
       if (isRun) totalStat.run++;
       if (isPass) totalStat.pass++;
-      if (pers) totalStat.pers[pers] = (totalStat.pers[pers] || 0) + 1;
     });
 
     // 表1: Down & Distance 傾向分析 (dd.htmlスタイル)

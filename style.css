@@ -708,3 +708,8 @@ body.view-only .draw-btn-empty { display: inline-flex; }
 .tendency-clickable:hover {
   opacity: 0.85;
 }
+
+#personnelTable th:not(:first-child):not(:nth-child(2)),
+#personnelTable td:not(:first-child):not(:nth-child(2)) {
+  min-width: 120px;
+}
