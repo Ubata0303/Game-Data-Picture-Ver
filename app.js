@@ -1421,7 +1421,6 @@
 
       const tdSit = el('td', 'td-situation', label);
       const tdTotal = el('td', '', String(stat.total));
-      tr.append(tdSit, tdTotal);
 
       const runPct = stat.total > 0 ? Math.round((stat.run / stat.total) * 100) : 0;
       const passPct = stat.total > 0 ? Math.round((stat.pass / stat.total) * 100) : 0;
@@ -1439,8 +1438,10 @@
       };
 
       tr.append(
+        tdSit,
         formatCell(stat.run, runPct),
-        formatCell(stat.pass, passPct)
+        formatCell(stat.pass, passPct),
+        tdTotal
       );
 
       // 比率バー (Run: 赤, Pass: 青)
