@@ -1316,11 +1316,6 @@
             const runPct = cnt > 0 ? Math.round((runCnt / cnt) * 100) : 0;
             const passPct = cnt > 0 ? Math.round((passCnt / cnt) * 100) : 0;
 
-            if (cnt >= 2) {
-              if (runPct >= 70) td.className = 'bg-run-high';
-              else if (passPct >= 70) td.className = 'bg-pass-high';
-            }
-
             td.innerHTML = `
               <div style="font-weight:700; font-size:0.95rem; line-height:1.2;">
                 ${cnt}回 <span class="stat-count">(${sitPct}%)</span>

@@ -713,3 +713,13 @@ body.view-only .draw-btn-empty { display: inline-flex; }
 #personnelTable td:not(:first-child):not(:nth-child(2)) {
   min-width: 120px;
 }
+
+/* ---------- Personnel マトリクス表: セルはデフォルト白（ハイライトなしで見やすさ重視） ---------- */
+#personnelTable tbody td {
+  background-color: #ffffff !important;
+}
+#personnelTable tr[data-down="1"] td.td-situation { background-color: var(--row-1st, #bed8ed) !important; }
+#personnelTable tr[data-down="2"] td.td-situation { background-color: var(--row-2nd, #fbe5d6) !important; }
+#personnelTable tr[data-down="3"] td.td-situation { background-color: var(--row-3rd, #d7efd4) !important; }
+#personnelTable tr[data-down="4"] td.td-situation { background-color: var(--row-4th, #ecd3ed) !important; }
+#personnelTable tr[data-down="total"] td { background-color: #f1f5f9 !important; font-weight: 800; }
